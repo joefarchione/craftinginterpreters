@@ -1,0 +1,7 @@
+(library
+ (name olox_lib)
+ (libraries core stdio)
+ (preprocess (pps ppx_inline_test ppx_assert ppx_deriving.show))
+ (inline_tests)
+)
+
