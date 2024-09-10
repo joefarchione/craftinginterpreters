@@ -199,7 +199,8 @@ let rec interpret (statements: Statement.t list) (env: Environment.t) : Environm
         interpret tl env
       )
       | Statement.Block (b) -> (
-        let _ = interpret b env in 
+        let local_scope = Environment.create_local env in 
+        let _ = interpret b local_scope in 
         env
       )
   )

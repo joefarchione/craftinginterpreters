@@ -30,4 +30,9 @@ let rec assign (t:t) (token:Token.t) (v: Value.t) : t =
     | Some (_) -> Local {enclosing = l.enclosing; values = Map.update l.values token.lexeme ~f:(fun _-> v);}
     | None -> assign l.enclosing token v 
 
+let create_local (t:t) : t = 
+  match t with 
+  | Global (g) -> Local {enclosing = t; values = g;}
+  | Local (l) -> Local {enclosing = t; values = l.values;}
+
 
