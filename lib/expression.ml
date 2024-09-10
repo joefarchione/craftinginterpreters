@@ -21,6 +21,7 @@ type t =
 | Literal of Value.t
 | BinaryOp of t * op * t
 | Unary of op * t
+| Call of t * Token.t * t list
 | Grouping of t
 | Variable of Token.t
 | Assignment of Token.t * t

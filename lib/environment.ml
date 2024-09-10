@@ -1,10 +1,10 @@
-open Base
+open Core
 
 type t = 
 | Global of Var_map.t
 | Local of {enclosing: t; values: Var_map.t;}
 
-let rec get t (s: Token.t) = 
+let rec get (t:t) (s: Token.t) = 
   match t with 
   | Global (g) -> 
     let value = match Map.find g s.lexeme with 
@@ -16,6 +16,11 @@ let rec get t (s: Token.t) =
     | Some (v) -> v
     | None -> get l.enclosing s in 
     value
+
+let define (t:t) k v = 
+  match t with 
+  | Global (g) -> Global (Var_map.define g k v)
+  | Local (l) -> Local {enclosing = l.enclosing; values=Var_map.define l.values k v}
 
 let rec assign (t:t) (token:Token.t) (v: Value.t) : t = 
   match t with 
@@ -34,5 +39,11 @@ let create_local (t:t) : t =
   match t with 
   | Global (g) -> Local {enclosing = t; values = g;}
   | Local (l) -> Local {enclosing = t; values = l.values;}
+
+let rec get_global (t:t) : t = 
+  match t with 
+  | Global (g) -> Global (g)
+  | Local (l) -> get_global l.enclosing
+
 
 

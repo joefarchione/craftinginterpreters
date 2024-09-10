@@ -7,8 +7,66 @@ let consume (tokens: Token.t list) (tag: Token.tag) (message: string) =
   match tokens with 
   | hd :: tl when (Token.equal_tag hd.tag tag) -> (hd, tl)
   | _ -> failwith message
-     
-let rec primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
+
+let rec evaluate (expr: Expression.t) (env: Environment.t): Value.t * Environment.t = 
+  match expr with 
+  | Literal (l) ->  l, env
+  | BinaryOp (a, o, b) ->  (
+    let left, env  = evaluate a env in 
+    let right, env = evaluate b env in 
+    let value = 
+      match (o, left, right) with 
+      | (Plus, LoxString(l), LoxString(r)) ->  (Value.LoxString (l ^ r))
+      | (Plus, LoxNumber (l), LoxNumber (r)) ->   (Value.LoxNumber (l +. r))
+      | (Minus, LoxNumber(l), LoxNumber (r)) ->  (Value.LoxNumber (l -. r))
+      | (Slash, LoxNumber(l), LoxNumber (r)) -> (Value.LoxNumber (l /.r ))
+      | (Star, LoxNumber(l), LoxNumber (r)) -> (Value.LoxNumber (l *. r))
+      | (Greater, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l > r))
+      | (Greater_equal, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l >= r))
+      | (Less, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l < r))
+      | (Less_equal, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l <= r))
+      | (Bang_equal, _, _) -> (Value.LoxBool (not (Value.is_equal left right)))
+      | (Equal_equal, _, _) -> (Value.LoxBool (Value.is_equal left right))
+      | _ -> failwith "incorrect" in 
+    value, env
+  )
+  | Unary (o, a) -> (
+    let right, env  = evaluate a env in 
+    let value = 
+      match o with 
+      | Bang -> Value.LoxBool (Value.is_truthy right)
+      | Minus -> Value.LoxNumber (-1.0 *. (Value.float_of right))
+      | _ -> failwith "incorrect" in 
+    value, env
+  )
+  | Grouping (e) -> (evaluate e env)
+  | Variable (v) -> Environment.get env v, env
+  | Assignment (token, expr) -> 
+      let value, env = evaluate expr env in 
+      let env = Environment.assign env token value in 
+      value, env
+  | Logical (a, o, b) -> 
+    let (left, env) = evaluate a env in
+    let (value, env) = 
+      match o with 
+        | And -> 
+          if not (Value.is_truthy left) then left, env
+          else evaluate b env
+        | Or -> 
+          if (Value.is_truthy left) then left, env
+          else evaluate b env in 
+    value, env
+  | Call (callee, _, arguments) -> 
+    let (callee, env) = evaluate callee env in
+    let eval_args = List.map ~f:(fun a -> evaluate a env |> (fun (a, _ ) -> a)) arguments in 
+    match callee with 
+    | Value.LoxFunction f -> 
+      if List.length eval_args = f.arity 
+        then (Value.call callee eval_args, env)
+      else  failwith "Incorrect"
+    | _ ->  failwith "Incorrect"
+
+and primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
   match tokens with 
   | [] -> failwith "incorrect token"
   | hd :: tl -> 
@@ -24,7 +82,33 @@ let rec primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
       (Expression.(Grouping exprs), rem_tokens)
     )
     | Token.VAR -> (Expression.(Variable hd), tl)
+    | Token.FUN -> call tokens
     | _ ->  failwith "incorrect token" 
+
+
+and call (tokens: Token.t list): (Expression.t * Token.t list) =
+  let (expr, rem_tokens) = primary tokens in 
+  let (rem_tokens, arguments) = 
+    match rem_tokens with 
+    (*TODO should this be recurive over while loop pg 148, needed for methods*)
+    | hd :: tl when (Token.equal_tag hd.tag Token.LEFT_PAREN) -> finish_call tl [] 
+    | _ -> (rem_tokens, [expr]) in 
+  let (paren, rem_tokens) = consume rem_tokens Token.RIGHT_PAREN "Expect ')' after arguments" in
+  (Expression.Call (expr, paren, arguments), rem_tokens)
+
+and finish_call (tokens: Token.t list) (arguments: Expression.t list) = 
+  match tokens with 
+  | hd :: tl when (Token.equal_tag hd.tag Token.RIGHT_PAREN) -> tl, arguments
+  | _ -> 
+    let (argument, rem_tokens) = expression tokens in 
+    match rem_tokens with 
+    | hd :: tl when Token.equal_tag hd.tag Token.COMMA -> 
+      if (List.length arguments) >= 255 then failwith "Can't have more than 255 arguments";
+      finish_call tl (argument :: arguments)
+    | _ -> 
+      let (_, rem_tokens) = consume rem_tokens Token.RIGHT_PAREN "Expect ')' after arguments" in 
+      rem_tokens, arguments
+
 
 and unary (tokens: Token.t list): (Expression.t * Token.t list) =
   match tokens with 
@@ -34,7 +118,7 @@ and unary (tokens: Token.t list): (Expression.t * Token.t list) =
   | hd :: tl when (Token.equal_tag hd.tag Token.MINUS) -> 
     let right, rem_tokens  = unary tl in 
     (Unary (Minus, right), rem_tokens)
-  | _ -> primary tokens
+  | _ -> call tokens
 
 and factor (tokens: Token.t list) : (Expression.t * Token.t list) = 
   let (left, rem_tokens) = unary tokens in 
@@ -116,54 +200,73 @@ and expression tokens = equality tokens
 
 type eval_result = (Value.t, Expression.t) result
 
-let rec evaluate (expr: Expression.t) (env: Environment.t): Value.t * Environment.t = 
-  match expr with 
-  | Literal (l) ->  l, env
-  | BinaryOp (a, o, b) ->  (
-    let left, env  = evaluate a env in 
-    let right, env = evaluate b env in 
-    let value = 
-      match (o, left, right) with 
-      | (Plus, LoxString(l), LoxString(r)) ->  (Value.LoxString (l ^ r))
-      | (Plus, LoxNumber (l), LoxNumber (r)) ->   (Value.LoxNumber (l +. r))
-      | (Minus, LoxNumber(l), LoxNumber (r)) ->  (Value.LoxNumber (l -. r))
-      | (Slash, LoxNumber(l), LoxNumber (r)) -> (Value.LoxNumber (l /.r ))
-      | (Star, LoxNumber(l), LoxNumber (r)) -> (Value.LoxNumber (l *. r))
-      | (Greater, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l > r))
-      | (Greater_equal, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l >= r))
-      | (Less, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l < r))
-      | (Less_equal, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l <= r))
-      | (Bang_equal, _, _) -> (Value.LoxBool (not (Value.is_equal left right)))
-      | (Equal_equal, _, _) -> (Value.LoxBool (Value.is_equal left right))
-      | _ -> failwith "incorrect" in 
-    value, env
+let rec evaluate_statement (statements: Statement.t list) (env: Environment.t) : Environment.t  = 
+  match statements with
+  | [] -> env
+  | hd:: tl -> (
+      match hd with 
+      | Statement.Expression (expr) -> 
+        ignore (evaluate expr env);
+        evaluate_statement tl env
+      | Statement.Print (expr) -> (
+        let value, env = evaluate expr env in 
+        (Printf.printf "%s") (Value.to_string value);
+        evaluate_statement tl env
+      ) 
+      | Statement.VarDeclaration {name; init;} -> (
+        let value, env = evaluate init env in 
+        let env = Environment.assign env name value in 
+        evaluate_statement tl env
+      )
+      | Statement.Block (b) -> (
+        let local_scope = Environment.create_local env in 
+        let _ = evaluate_statement b local_scope in 
+        env
+      )
+      | Statement.If (condition, then_branch) -> 
+        let _ = (
+          if Value.is_truthy (evaluate condition env |> (fun (expr, _) -> expr)) 
+          then ignore (evaluate_statement [then_branch] env)) in 
+        env
+      | Statement.IfElse (condition, then_branch, else_branch) -> 
+        let _ = (
+          if Value.is_truthy (evaluate condition env |> (fun (expr, _) -> expr)) 
+          then ignore(evaluate_statement [then_branch] env)
+          else ignore(evaluate_statement [else_branch] env)) in 
+        env
+      | Statement.While (condition, body) -> 
+        ignore (interpret_while condition body env);
+        env
+      | Statement.For (init, condition, increment, body) -> 
+        let body = 
+          match increment with
+          | Some (i) -> Statement.Block [body; (Statement.Expression (i))]
+          | None -> Statement.Block [body] in 
+        let body = 
+          match condition with 
+          | Some (c) ->  Statement.While (c, body)
+          | None -> Statement.While (Expression.Literal (Value.LoxBool true), body) in 
+        let body = 
+          match init with 
+          | Some (i) -> Statement.Block [i; body]
+          | None -> body in
+        ignore (evaluate_statement [body] env);
+        env
+      | Statement.FunctionDeclaration (name, params, body) -> 
+        let global_env = Environment.get_global env in 
+        let func_env = Environment.create_local global_env in
+        let call_func (args: Value.t list) : Value.t = 
+          let new_env = List.fold2 params args ~init:func_env ~f:(fun acc p a -> Environment.define acc p.lexeme a) in 
+          let new_env = match new_env with 
+          | Ok (e) -> e
+          | Unequal_lengths -> failwith "incorrect" in 
+          ignore (evaluate_statement body new_env);
+          Value.LoxNil in 
+        let env = Environment.define func_env name.lexeme (Value.LoxFunction {name = name.lexeme; arity = List.length params; callable = call_func}) in 
+        env
   )
-  | Unary (o, a) -> (
-    let right, env  = evaluate a env in 
-    let value = 
-      match o with 
-      | Bang -> Value.LoxBool (Value.is_truthy right)
-      | Minus -> Value.LoxNumber (-1.0 *. (Value.float_of right))
-      | _ -> failwith "incorrect" in 
-    value, env
-  )
-  | Grouping (e) -> (evaluate e env)
-  | Variable (v) -> Environment.get env v, env
-  | Assignment (token, expr) -> 
-      let value, env = evaluate expr env in 
-      let env = Environment.assign env token value in 
-      value, env
-  | Logical (a, o, b) -> 
-    let (left, env) = evaluate a env in
-    match o with 
-      | And -> 
-        if not (Value.is_truthy left) then left, env
-        else evaluate b env
-      | Or -> 
-        if (Value.is_truthy left) then left, env
-        else evaluate b env
 
-let rec statements (tokens: Token.t list) (stmts: Statement.t list)  = 
+and statements (tokens: Token.t list) (stmts: Statement.t list)  = 
   match tokens with
   | [] -> (stmts, tokens)
   | _ -> 
@@ -180,6 +283,7 @@ and statement (tokens: Token.t list)  =
       | Token.VAR -> var_declaration tl
       | Token.LEFT_BRACE -> block tl []
       | Token.IF -> if_statement tl
+      | Token.FUN -> function_statement tl "function"
       | _ -> expression_statement tokens in
     stmt, rem_tokens
 
@@ -200,7 +304,7 @@ and var_declaration (tokens: Token.t list) =
     | hd :: tl when (Token.equal_tag hd.tag Token.EQUAL) -> expression tl
     | _ -> failwith "not a match" in 
   let (_, rem_tokens)  = consume rem_tokens Token.SEMICOLON "Expect variable name" in 
-  (Statement.Var {name = name; init=init; }, rem_tokens)
+  (Statement.VarDeclaration {name = name; init=init; }, rem_tokens)
 
 and block (tokens: Token.t list) (stmts: Statement.t list) = 
   match tokens with 
@@ -230,7 +334,7 @@ and while_statement (tokens: Token.t list) =
   let (body, rem_tokens) = statement rem_tokens in 
   (Statement.While (condition, body)), rem_tokens
 
-and for_statement (tokens: Token.t list) = 
+and for_statement (tokens: Token.t list): Statement.t * Token.t list = 
   let (_, rem_tokens) = consume tokens Token.LEFT_PAREN "Expect '(' after 'for'" in 
 
   let a_b_to_somea_b (a,b) = Some a, b in 
@@ -261,71 +365,43 @@ and for_statement (tokens: Token.t list) =
   let (body, rem_tokens) = statement rem_tokens in 
   (Statement.For (init, condition, increment, body)), rem_tokens
 
-let rec interpret (statements: Statement.t list) (env: Environment.t) : Environment.t  = 
-  match statements with
-  | [] -> env
-  | hd:: tl -> (
-      match hd with 
-      | Statement.Expression (expr) -> 
-        ignore (evaluate expr env);
-        interpret tl env
-      | Statement.Print (expr) -> (
-        let value, env = evaluate expr env in 
-        (Printf.printf "%s") (Value.to_string value);
-        interpret tl env
-      ) 
-      | Statement.Var {name; init;} -> (
-        let value, env = evaluate init env in 
-        let env = Environment.assign env name value in 
-        interpret tl env
-      )
-      | Statement.Block (b) -> (
-        let local_scope = Environment.create_local env in 
-        let _ = interpret b local_scope in 
-        env
-      )
-      | Statement.If (condition, then_branch) -> 
-        let _ = (
-          if Value.is_truthy (evaluate condition env |> (fun (expr, _) -> expr)) 
-          then ignore (interpret [then_branch] env)) in 
-        env
-      | Statement.IfElse (condition, then_branch, else_branch) -> 
-        let _ = (
-          if Value.is_truthy (evaluate condition env |> (fun (expr, _) -> expr)) 
-          then ignore(interpret [then_branch] env)
-          else ignore(interpret [else_branch] env)) in 
-        env
-      | Statement.While (condition, body) -> 
-        ignore (interpret_while condition body env);
-        env
-      | Statement.For (init, condition, increment, body) -> 
-        let body = 
-          match increment with
-          | Some (i) -> Statement.Block [body; (Statement.Expression (i))]
-          | None -> Statement.Block [body] in 
-        let body = 
-          match condition with 
-          | Some (c) ->  Statement.While (c, body)
-          | None -> Statement.While (Expression.Literal (Value.LoxBool true), body) in 
-        let body = 
-          match init with 
-          | Some (i) -> Statement.Block [i; body]
-          | None -> body in
-        ignore (interpret [body] env);
-        env
-  )
+and function_statement (tokens: Token.t list) (kind: string): (Statement.t * Token.t list) =
+  let message = (Printf.sprintf "Expect %s name") kind in 
+  let (name, rem_tokens) = consume tokens Token.IDENTIFIER message in 
+  let message = (Printf.sprintf "Expect '(' after %s name") kind in 
+  let (_, rem_tokens) = consume rem_tokens Token.LEFT_PAREN message in 
+
+  let rec collect_parameters (tokens: Token.t list) (parameters: Token.t list) = 
+    match tokens with 
+    | hd :: tl when (Token.equal_tag hd.tag Token.COMMA) -> 
+        if List.length parameters >= 255 then Printf.printf "Can't have more than 255 parameters";
+        let (parameter, rem_tokens) = consume tl Token.IDENTIFIER message in 
+        collect_parameters rem_tokens (parameter::parameters)
+    | _  -> (parameters, rem_tokens) in 
+
+  let (parameters, rem_tokens) = 
+    consume rem_tokens Token.IDENTIFIER message 
+    |> (fun (p, t) -> collect_parameters t [p]) in 
+
+  let message = (Printf.sprintf "Expect ')' after parameters") in 
+  let (_, rem_tokens) = consume rem_tokens Token.RIGHT_PAREN message  in 
+  let message = (Printf.sprintf "Expect '{' after parameters") in 
+  let (_, rem_tokens) = consume rem_tokens Token.LEFT_BRACE message  in 
+  let (body, rem_tokens) = block rem_tokens [] in 
+  let body = match body with | Statement.Block (b) -> b | _ -> [body;] in 
+  Statement.FunctionDeclaration (name, parameters, body), rem_tokens
 
 and interpret_while condition body env = 
   let (value, env) = evaluate condition env in 
   if Value.is_truthy value then 
-    let env = interpret [body] env in 
+    let env = evaluate_statement [body] env in 
     ignore (interpret_while condition body env);
   else ()
 
 (* TODO implement syncrhonize parser to catch error result types and then move to the next key word type*)
-let parse tokens = 
+and interpret tokens = 
   let statements, _ = statements tokens [] in 
-  interpret statements
+  evaluate_statement statements
 
   
 
