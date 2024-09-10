@@ -38,7 +38,7 @@ type tag =
   | VAR
   | WHILE
   | EOF
-  [@@deriving  show { with_path = false }]
+  [@@deriving  eq, show { with_path = false }]
 
 
 let get_keyword text =

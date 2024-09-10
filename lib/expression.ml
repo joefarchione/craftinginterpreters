@@ -17,10 +17,7 @@ type expr =
 | BinaryOp of expr * op * expr
 | Unary of op * expr
 | Grouping of expr
-[@@deriving  show { with_path = false }]
-
-type stmt = 
-| IfThenElse of expr * stmt * stmt
-| Print of expr
+| Variable of Token.t
+| Assignment of Token.t * expr
 [@@deriving  show { with_path = false }]
 
