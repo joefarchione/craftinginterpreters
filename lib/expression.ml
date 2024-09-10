@@ -12,12 +12,18 @@ type op =
 | Less_equal
 [@@deriving  show { with_path = false }]
 
-type expr = 
+type logical_op = 
+| And 
+| Or
+[@@deriving  show { with_path = false }]
+
+type t = 
 | Literal of Value.t
-| BinaryOp of expr * op * expr
-| Unary of op * expr
-| Grouping of expr
+| BinaryOp of t * op * t
+| Unary of op * t
+| Grouping of t
 | Variable of Token.t
-| Assignment of Token.t * expr
+| Assignment of Token.t * t
+| Logical of t * logical_op * t
 [@@deriving  show { with_path = false }]
 
