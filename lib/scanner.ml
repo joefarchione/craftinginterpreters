@@ -71,7 +71,8 @@ let rec add_string scanner =
     add_token_with_literal scanner STRING literal
   )
   else if (is_eof scanner) then 
-      failwith (Printf.sprintf "Unterminated string %d" scanner.current)
+      let message = "Unterminated string" in 
+      raise Lox_error.(ParseError {line = scanner.line; lexeme = "EOF" ; message = message;})
   else scanner |> advance_scanner |> add_string
 
 let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
@@ -88,7 +89,7 @@ let rec number scanner =
 
     in 
     match num with
-    | None -> failwith "Invalid number";
+    | None -> raise Lox_error.(ParseError {line = scanner.line; lexeme = value; message = "Invalid number" });
     | Some n -> add_token_with_literal scanner NUMBER (LoxNumber n)
   )
   else scanner |> advance_scanner |> number
@@ -132,7 +133,7 @@ let scan_token scanner =
   | '"' -> add_string scanner
   | c when is_digit c -> number scanner
   | c when is_alpha c -> identifier scanner
-  | _ -> failwith "error"
+  | _ -> raise Lox_error.(ParseError {line=scanner.line; lexeme = String.make 1 (c); message = "Invalid char"})
   )
 
 let rec scan_tokens scanner = 

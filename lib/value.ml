@@ -23,22 +23,6 @@ let to_string v =
   | LoxNil  -> Printf.sprintf "Nil"
   | LoxFunction f -> Printf.sprintf "<fn %s>" f.name
 
-type eval_type =
-  | Bool
-  | Number
-  | String
-  | Nil
-  | Function
-[@@deriving eq]
-
-let type_of value =
-  match value with
-  | LoxBool _ -> Bool
-  | LoxNumber _ -> Number
-  | LoxString _ -> String
-  | LoxNil -> Nil
-  | LoxFunction _ -> Function
-
 let float_of = function | LoxNumber (x) -> x | _ -> failwith "not a float"
 let bool_of = function | LoxBool (x) -> x | _ -> true
 let string_of = function | LoxString (x) -> x | _ -> failwith "not a string"

@@ -11,6 +11,7 @@ type t =
 | While of Expression.t * t
 | For of t option * Expression.t option * Expression.t option * t
 | FunctionDeclaration of Token.t * Token.t list * t list
+| Return of Expression.t option
 [@@deriving  show { with_path = false }]
 
 
