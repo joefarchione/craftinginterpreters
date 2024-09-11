@@ -1,6 +1,5 @@
 open Core
 
-let (let*) = Result.bind
 let matches tag tags = List.mem tag tags
 
 let consume (tokens: Token.t list) (tag: Token.tag) (message: string) = 
@@ -9,66 +8,7 @@ let consume (tokens: Token.t list) (tag: Token.tag) (message: string) =
   | hd :: _ -> raise (Lox_error.ParseError Lox_error.{line=hd.line;lexeme=hd.lexeme;message=message;})
   | [] ->  raise (Lox_error.ParseError Lox_error.{line=(-1); lexeme="EOF";message=message})
 
-let rec evaluate_expr (expr: Expression.t) (env: Environment.t): Value.t * Environment.t = 
-  match expr with 
-  | Literal (l) ->  l, env
-  | BinaryOp (a, o, b) ->  (
-    let left, env  = evaluate_expr a env in 
-    let right, env = evaluate_expr b env in 
-    let value = 
-      match (o, left, right) with 
-      | (Plus, LoxString(l), LoxString(r)) ->  (Value.LoxString (l ^ r))
-      | (Plus, LoxNumber (l), LoxNumber (r)) ->   (Value.LoxNumber (l +. r))
-      | (Minus, LoxNumber(l), LoxNumber (r)) ->  (Value.LoxNumber (l -. r))
-      | (Slash, LoxNumber(l), LoxNumber (r)) -> (Value.LoxNumber (l /.r ))
-      | (Star, LoxNumber(l), LoxNumber (r)) -> (Value.LoxNumber (l *. r))
-      | (Greater, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l > r))
-      | (Greater_equal, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l >= r))
-      | (Less, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l < r))
-      | (Less_equal, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l <= r))
-      | (Bang_equal, _, _) -> (Value.LoxBool (not (Value.is_equal left right)))
-      | (Equal_equal, _, _) -> (Value.LoxBool (Value.is_equal left right))
-      | _ -> raise (Lox_error.EvalError {expr}) in 
-    value, env
-  )
-  | Unary (o, a) -> (
-    let right, env  = evaluate_expr a env in 
-    let value = 
-      match o with 
-      | Bang -> Value.LoxBool (Value.is_truthy right)
-      | Minus -> Value.LoxNumber (-1.0 *. (Value.float_of right))
-      | _ -> raise (Lox_error.EvalError {expr}) in 
-    value, env
-  )
-  | Grouping (e) -> (evaluate_expr e env)
-  | Variable (v) -> Environment.get env v, env
-  | Assignment (token, expr) -> 
-      let value, env = evaluate_expr expr env in 
-      let env = Environment.assign env token value in 
-      value, env
-  | Logical (a, o, b) -> 
-    let (left, env) = evaluate_expr a env in
-    let (value, env) = 
-      match o with 
-        | And -> 
-          if not (Value.is_truthy left) then left, env
-          else evaluate_expr b env
-        | Or -> 
-          if (Value.is_truthy left) then left, env
-          else evaluate_expr b env in 
-    value, env
-  | Call (callee, _, arguments) -> 
-    let (callee, env) = evaluate_expr callee env in
-    let eval_args = List.map ~f:(fun a -> evaluate_expr a env |> (fun (a, _ ) -> a)) arguments in 
-    match callee with 
-    | Value.LoxFunction f -> 
-      if List.length eval_args = f.arity 
-        then (Value.call callee eval_args, env)
-      else  raise (Lox_error.EvalError {expr}) 
-    | _ ->  raise (Lox_error.EvalError {expr}) 
-
-
-and primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
+let rec primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
   match tokens with 
   | [] -> Lox_error.out_of_tokens ()
   | hd :: tl -> 
@@ -202,82 +142,7 @@ and expression tokens = equality tokens
 
 type eval_result = (Value.t, Expression.t) result
 
-let rec evaluate_statement (statements: Statement.t list) (env: Environment.t) : Environment.t  = 
-  match statements with
-  | [] -> env
-  | hd:: tl -> (
-      match hd with 
-      | Statement.Expression (expr) -> 
-        ignore (evaluate_expr expr env);
-        evaluate_statement tl env
-      | Statement.Print (expr) -> (
-        let value, env = evaluate_expr expr env in 
-        (Printf.printf "%s") (Value.to_string value);
-        evaluate_statement tl env
-      ) 
-      | Statement.VarDeclaration {name; init;} -> (
-        let value, env = evaluate_expr init env in 
-        let env = Environment.assign env name value in 
-        evaluate_statement tl env
-      )
-      | Statement.Block (b) -> (
-        let local_scope = Environment.create_local env in 
-        let _ = evaluate_statement b local_scope in 
-        env
-      )
-      | Statement.If (condition, then_branch) -> 
-        let _ = (
-          if Value.is_truthy (evaluate_expr condition env |> (fun (expr, _) -> expr)) 
-          then ignore (evaluate_statement [then_branch] env)) in 
-        env
-      | Statement.IfElse (condition, then_branch, else_branch) -> 
-        let _ = (
-          if Value.is_truthy (evaluate_expr condition env |> (fun (expr, _) -> expr)) 
-          then ignore(evaluate_statement [then_branch] env)
-          else ignore(evaluate_statement [else_branch] env)) in 
-        env
-      | Statement.While (condition, body) -> 
-        ignore (interpret_while condition body env);
-        env
-      | Statement.For (init, condition, increment, body) -> 
-        let body = 
-          match increment with
-          | Some (i) -> Statement.Block [body; (Statement.Expression (i))]
-          | None -> Statement.Block [body] in 
-        let body = 
-          match condition with 
-          | Some (c) ->  Statement.While (c, body)
-          | None -> Statement.While (Expression.Literal (Value.LoxBool true), body) in 
-        let body = 
-          match init with 
-          | Some (i) -> Statement.Block [i; body]
-          | None -> body in
-        ignore (evaluate_statement [body] env);
-        env
-      | Statement.FunctionDeclaration (name, params, body) -> 
-        let global_env = Environment.get_global env in 
-        let func_env = Environment.create_local global_env in
-        let call_func (args: Value.t list) : Value.t = 
-          let closure = List.fold2 params args ~init:func_env ~f:(fun acc p a -> Environment.define acc p.lexeme a) in 
-          let closure = match closure with 
-          | Ok (e) -> e
-          | Unequal_lengths -> Lox_error.too_few_arguments_supplied () in 
-          try 
-            ignore (evaluate_statement body closure);
-            Value.LoxNil 
-          with 
-            | Lox_error.ReturnError (v) -> v in 
-        let env = Environment.define func_env name.lexeme (Value.LoxFunction {name = name.lexeme; arity = List.length params; callable = call_func}) in 
-        env
-      | Statement.Return (expr) -> 
-        match expr with 
-        | Some (e) -> 
-          let (value, _) = evaluate_expr e env in 
-          raise (Lox_error.ReturnError value)
-        | None  -> raise (Lox_error.ReturnError Value.LoxNil)
-  )
-
-and statements (tokens: Token.t list) (stmts: Statement.t list)  = 
+let rec statements (tokens: Token.t list) (stmts: Statement.t list)  = 
   match tokens with
   | [] -> (stmts, tokens)
   | _ -> 
@@ -313,8 +178,8 @@ and var_declaration (tokens: Token.t list) =
   let (name, rem_tokens)  = consume tokens Token.IDENTIFIER "Expect variable name" in 
   let (init, rem_tokens) = 
     match rem_tokens with 
-    | hd :: tl when (Token.equal_tag hd.tag Token.EQUAL) -> expression tl
-    | hd :: _ -> Lox_error.parse_error_from_token hd "Expected '=' after variable name"
+    | hd :: tl when (Token.equal_tag hd.tag Token.EQUAL) -> expression tl |> (fun (i, r) -> ((Some i), r))
+    | _ :: tl -> None, tl
     | [] -> Lox_error.out_of_tokens () in
   let (_, rem_tokens)  = consume rem_tokens Token.SEMICOLON "Expect variable name" in 
   (Statement.VarDeclaration {name = name; init=init; }, rem_tokens)
@@ -415,16 +280,6 @@ and return_statement (tokens: Token.t list) : (Statement.t * Token.t list) =
   let (_, rem_tokens) = consume rem_tokens Token.SEMICOLON message  in 
   Statement.Return expr, rem_tokens
 
-and interpret_while condition body env = 
-  let (value, env) = evaluate_expr condition env in 
-  if Value.is_truthy value then 
-    let env = evaluate_statement [body] env in 
-    ignore (interpret_while condition body env);
-  else ()
-
-and interpret tokens = 
-  let statements, _ = statements tokens [] in 
-  evaluate_statement statements
 
 let rec synchronize (tokens: Token.t list) = 
   match tokens with 
@@ -442,4 +297,8 @@ let rec synchronize (tokens: Token.t list) =
     | Token.RETURN -> tokens
     | _ -> synchronize tl
   
+  
+let parse tokens = 
+  let statements, _ = statements tokens []  in
+  statements
 

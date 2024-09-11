@@ -10,12 +10,12 @@ type op =
 | Greater_equal
 | Less
 | Less_equal
-[@@deriving  show { with_path = false }]
+[@@deriving  eq,  show { with_path = false }]
 
 type logical_op = 
 | And 
 | Or
-[@@deriving  show { with_path = false }]
+[@@deriving  eq,  show { with_path = false }]
 
 type t = 
 | Literal of Value.t
@@ -26,5 +26,5 @@ type t =
 | Variable of Token.t
 | Assignment of Token.t * t
 | Logical of t * logical_op * t
-[@@deriving  show { with_path = false }]
+[@@deriving eq,show { with_path = false }]
 

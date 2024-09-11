@@ -11,6 +11,7 @@ type eval_error = {
 exception ParseError of parse_error
 exception EvalError of eval_error
 exception ArgumentLengthExceeded of string
+exception RunTimeError of string * string
 exception TooFewArgumentsSupplied of string
 exception ReturnError of Value.t
 

@@ -1,4 +1,4 @@
-type variable = {name: Token.t; init: Expression.t;}
+type variable = {name: Token.t; init: Expression.t option;} (*implement option type?*)
 [@@deriving  show { with_path = false }]
 
 type t = 

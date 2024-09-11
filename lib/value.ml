@@ -4,13 +4,13 @@ type t =
   | LoxString of string
   | LoxNil 
   | LoxFunction of lox_function
-  [@@deriving  show { with_path = false }]
+  [@@deriving   show { with_path = false }]
 
 and lox_function =
   { 
     arity : int;
     name : string;
-    callable : t list -> t [@equal fun _ _ -> false] (* no equality for functions *)
+    callable : t list -> t [@equal fun _ _ -> false]  (* no equality for functions *)
   }
   [@@deriving show { with_path = false }, eq]
 
