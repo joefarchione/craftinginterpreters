@@ -1,91 +1,83 @@
 open Core
 
-module VarMap = struct 
+module ValuesMap = struct 
   type t = (string, Value.t, String.comparator_witness) Map.t
 
   let empty = Map.empty (module String)
   let to_list t = Map.to_alist t
 
-  let define t k v  = 
+  let define k v t  = 
     match Map.add t ~key:k ~data:v with
     | `Ok (v) -> v
     | `Duplicate -> Map.set t ~key:k ~data:v
 
-  let contains t k = 
-    match Map.find t k with
+  let contains (token:Token.t) t = 
+    match Map.find t token.lexeme with
     | Some (_) -> true
     | None -> false
+  
+  let assign (token:Token.t) (value: Value.t) t = 
+      if contains token t then
+        (Map.update t token.lexeme ~f:(fun _-> value))
+      else 
+        raise Lox_error.(RunTimeError (token.lexeme, "Undefined variable"))
+
+    let get (token: Token.t) (t:t) = 
+      match Map.find t token.lexeme with 
+        | Some v -> v
+        | None -> raise Lox_error.(RunTimeError (token.lexeme, "Undefined variable"))
 
 end
 
-type t = 
-| Global of VarMap.t
-| Local of {enclosing: t; values: VarMap.t;}
+type t = ValuesMap.t list
+let empty = ValuesMap.empty :: []
+let is_empty t = List.is_empty t
 
-let rec get (t:t) (s: Token.t) = 
+let rec get (token: Token.t) (t:t) : Value.t = 
   match t with 
-  | Global (g) -> 
-    let value = match Map.find g s.lexeme with 
-      | Some v -> v 
-      | None -> failwith ((Printf.sprintf "undefined variable %s") s.lexeme) in 
-    value
-  | Local (l) -> 
-    let value = match Map.find l.values s.lexeme with
-    | Some (v) -> v
-    | None -> get l.enclosing s in 
-    value
-
-let define (t:t) k v = 
-  match t with 
-  | Global (g) -> Global (VarMap.define g k v)
-  | Local (l) -> Local {enclosing = l.enclosing; values=VarMap.define l.values k v}
-
-let rec assign (t:t) (token:Token.t) (v: Value.t) : t = 
-  match t with 
-  | Global (g) -> 
-    let env = 
-      if VarMap.contains g token.lexeme then
-        Map.update g token.lexeme ~f:(fun _-> v) 
-      else 
-        failwith ((Printf.sprintf "undefined variable %s") token.lexeme) in 
-    Global env
-  | Local (l) -> 
-    if VarMap.contains l.values token.lexeme then
-      Local {enclosing = l.enclosing; values = Map.update l.values token.lexeme ~f:(fun _-> v);}
+  | [] -> raise Lox_error.(RunTimeError (token.lexeme, "Empty enviroment"))
+  | hd :: tl -> 
+    if ValuesMap.contains token hd then
+      ValuesMap.get token hd
     else
-      assign l.enclosing token v 
+      get token tl
 
-let create_local (t:t) : t = 
+let define token value (t:t) = 
   match t with 
-  | Global (g) -> Local {enclosing = t; values = g;}
-  | Local (l) -> Local {enclosing = t; values = l.values;}
+  | hd::tl -> (ValuesMap.define token value hd) :: tl
+  | _ -> 
+    let env = ValuesMap.empty in 
+    (ValuesMap.define token value env) :: []
 
-let rec get_global (t:t) : t = 
-  match t with 
-  | Global (g) -> Global (g)
-  | Local (l) -> get_global l.enclosing
+let assign (token:Token.t) (value:Value.t) (t:t) : t = 
+  let rec assign_ (token:Token.t) value (t:t) (t_out:t) : t = 
+    match t with 
+    | [] -> raise Lox_error.(RunTimeError (token.lexeme, "Undefined variable"))
+    | hd :: tl -> 
+      if ValuesMap.contains token hd then
+        t_out @ (ValuesMap.assign token value hd :: tl)
+      else
+        assign_ token value tl (t_out @ [hd]) in 
+  assign_ token value t []
+    
 
-let rec ancestor (distance:int) (t:t) : t = 
-  match t with
-  | Global (_) -> t
-  | Local (l) -> 
-    match distance with 
-    | 0 -> t
-    | _ -> ancestor (distance-1) l.enclosing
+let create_local (t:t) : t = ValuesMap.empty :: t
+let get_global (t:t) : ValuesMap.t = 
+  match List.last t with
+  | Some (l) -> l
+  | None -> ValuesMap.empty
 
-let get_at distance token t = 
-  let env = ancestor distance t in 
-  get env token
+let ancestor distance (t:t) = 
+  match List.nth t distance with 
+  | Some(l) -> l
+  | None -> raise Lox_error.(RunTimeError (Printf.sprintf "%d" distance, "Undefined environment"))
 
-let assign_at distance (token:Token.t) value t = 
-  let env = ancestor distance t in
-  define env token.lexeme value
-
-
-
-
-
-
-
-
-
+let get_at distance token t = ancestor distance t |> ValuesMap.get token
+let assign_at (distance:int) (token:Token.t) (value: Value.t) (t:t) = 
+  List.mapi t ~f:(fun idx env -> 
+    if idx = distance then 
+        (ValuesMap.assign token value env)
+    else 
+      env
+  )
+  

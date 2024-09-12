@@ -138,10 +138,11 @@ let scan_token lexer =
 
 let rec scan_tokens lexer = 
   if (lexer |> is_eof) then (
-    let token =
+    (* let token =
       Token.{ tag = Token.EOF; lexeme = ""; literal = Value.LoxNil; line = lexer.line }
-    in
-    List.rev (token :: lexer.tokens))
+    in *)
+    List.rev lexer.tokens
+  )
   else
     let lexer = {lexer with start = lexer.current} in
     scan_tokens (scan_token lexer)

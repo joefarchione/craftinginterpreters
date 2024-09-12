@@ -1,30 +1,18 @@
-type op = 
-| Plus
-| Minus
-| Bang
-| Slash
-| Star
-| Equal_equal
-| Bang_equal
-| Greater
-| Greater_equal
-| Less
-| Less_equal
-[@@deriving  eq,  show { with_path = false }]
-
-type logical_op = 
-| And 
-| Or
-[@@deriving  eq,  show { with_path = false }]
+open Core 
 
 type t = 
 | Literal of Value.t
-| BinaryOp of t * op * t
-| Unary of op * t
+| BinaryOp of t * Token.t * t
+| Unary of Token.t * t
 | Call of t * Token.t * t list
 | Grouping of t
 | Variable of Token.t
 | Assignment of Token.t * t
-| Logical of t * logical_op * t
-[@@deriving eq,show { with_path = false }]
+| Logical of t * Token.t * t
+[@@deriving eq, sexp, show { with_path = false }]
+
+let compare (a:t) (b:t) : int = if equal a b then 1 else 0
+
+let print t = (Printf.printf "%s\n" (show t))
+let print_expressions exprs = List.iter exprs ~f:print
 

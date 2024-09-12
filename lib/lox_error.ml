@@ -8,6 +8,7 @@ type eval_error = {
   expr: Expression.t;
 }
 
+exception ResolverError of Token.t * string
 exception ParseError of parse_error
 exception EvalError of eval_error
 exception ArgumentLengthExceeded of string
@@ -29,6 +30,9 @@ let parse_error_from_token (token: Token.t) (message:string) =
 
 let report_runtime_error error = 
   (Printf.eprintf "%s\n[line %d]") error.message error.line
+
+let report_parse_error error = 
+  (Printf.eprintf "line %d: %s lexeme=%s\n") error.line error.message error.lexeme
 
 let report_eval_error error = 
   (Printf.eprintf "%s") (Expression.show error)

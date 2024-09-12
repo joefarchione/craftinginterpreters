@@ -1,3 +1,5 @@
+open Core 
+
 type variable = {name: Token.t; init: Expression.t option;} (*implement option type?*)
 [@@deriving  show { with_path = false }]
 
@@ -13,6 +15,10 @@ type t =
 | FunctionDeclaration of Token.t * Token.t list * t list
 | Return of Expression.t option
 [@@deriving  show { with_path = false }]
+
+let print_statements stmts = 
+  List.iter ~f:(fun stmt -> (Printf.printf "%s\n") (show stmt)) stmts;
+  (Printf.printf "\n");
 
 
 

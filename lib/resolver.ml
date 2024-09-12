@@ -56,7 +56,8 @@ module ScopeStack = struct
 end
 
 module Locals = struct
-  type t = (Expression.t, int, String.comparator_witness) Map.t
+  include Map.Make(Expression)
+  type t = (Expression.t, int, Key.comparator_witness) Map.t 
 
   let get (expr: Expression.t) (t:t) = 
     match Map.find t expr with
@@ -68,11 +69,23 @@ module Locals = struct
     | `Ok (v) -> v
     | `Duplicate -> Map.set t ~key:k ~data:v
 
+  let print t = 
+    Map.iter t ~f:(fun b -> ((Printf.printf "%d") b))
 end
+
+type function_type = 
+| Function
 
 type t = {
   scopes: ScopeStack.t;
   locals: Locals.t;
+  current_function: function_type option
+}
+
+let create () = {
+  scopes = ScopeStack.empty;
+  locals = Locals.empty;
+  current_function= None;
 }
 
 let pop  = function | [] -> (None, []) | [x] -> (Some x, []) | hd::tl -> (Some hd, tl)
@@ -88,15 +101,23 @@ let is_declared_in_current_scope token (t:t) =
   | [] -> false
   | hd :: _ -> Scope.status_is_declared token hd
 
-let declare_or_define func (t: t) (name : Token.t) = 
+let declare  (name : Token.t) (t:t) = 
   match t.scopes with 
   | [] -> t
   | hd :: tl -> 
-    let hd = func hd name in 
+    if Scope.contains name hd then 
+      raise Lox_error.(ResolverError (name, "Already a variable in this scope with this name"))
+    else
+      let hd = Scope.declare hd name in 
+      {t with scopes = hd :: tl}
+
+let define  (name : Token.t) (t:t)= 
+  match t.scopes with 
+  | [] -> t
+  | hd :: tl -> 
+    let hd = Scope.define hd name in 
     {t with scopes = hd :: tl}
 
-let declare  (name : Token.t) (t:t)= declare_or_define Scope.declare t name
-let define  (name : Token.t) (t:t)= declare_or_define Scope.define t name
 let rec resolve_local_i (i:int) (expr: Expression.t) (token: Token.t) (t:t) : Locals.t = 
   match t.scopes with
   | [] -> t.locals
@@ -127,7 +148,7 @@ and resolve_stmt (stmt: Statement.t) (t:t) =
   | FunctionDeclaration (name, params, body) -> 
     declare name t
     |> define name 
-    |> resolve_function params body
+    |> resolve_function params body Function
   | If (condition, thenbranch) -> 
     resolve_expr condition t
     |> resolve_stmt thenbranch
@@ -138,9 +159,12 @@ and resolve_stmt (stmt: Statement.t) (t:t) =
   | Print (expr) -> 
     resolve_expr expr t
   | Return (expr_opt) -> (
-    match expr_opt with
-    | Some (e) -> resolve_expr e t
-    | None -> t
+    match t.current_function with 
+    | None -> raise Lox_error.(RunTimeError ("return", "Can't return from top-level code"))
+    | Some (Function) -> 
+      match expr_opt with
+      | Some (e) -> resolve_expr e t
+      | None -> t
   )
   | While (condition, body) -> (
     resolve_expr condition t
@@ -165,7 +189,9 @@ and resolve_stmt (stmt: Statement.t) (t:t) =
       resolve_expr expr t
     | Literal (_) -> t
     | Variable (v) -> (
-      if not (ScopeStack.is_empty t.scopes) then
+      if (not (ScopeStack.is_empty t.scopes)
+        && not (ScopeStack.is_defined_in_current_scope v t.scopes)
+      ) then
         raise Lox_error.(RunTimeError (v.lexeme, "Can't read local variable in it's own initializer"))
       else
         {t with locals = resolve_local expr v t }
@@ -183,8 +209,12 @@ and fold_resolve_stmt (lst: Statement.t list) (t:t)  =
 and fold_resolve_expr (lst: Expression.t list) (t:t) = 
   List.fold lst ~init:t ~f:(fun s p -> resolve_expr p s) 
 
-and resolve_function (params: Token.t list) (body: Statement.t list) (t:t) = 
+and resolve_function (params: Token.t list) (body: Statement.t list) (f_type: function_type) (t:t) = 
+  let enclosing_function = t.current_function in 
   let t = begin_scope t in 
-  List.fold params ~init:t ~f:(fun s p -> declare p s |> define p) 
-  |> resolve body
-  |> end_scope
+  let t = {t with current_function = Some f_type} in 
+  let t = 
+    List.fold params ~init:t ~f:(fun s p -> declare p s |> define p) 
+    |> resolve body
+    |> end_scope in 
+  {t with current_function = enclosing_function}

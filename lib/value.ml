@@ -1,10 +1,12 @@
+open Core 
+
 type t = 
   | LoxBool of bool
   | LoxNumber of float
   | LoxString of string
   | LoxNil 
   | LoxFunction of lox_function
-  [@@deriving   show { with_path = false }]
+  [@@deriving eq, sexp, show { with_path = false }]
 
 and lox_function =
   { 
@@ -31,7 +33,7 @@ let is_equal a b =
   match (a, b)  with 
   | (LoxNil, LoxNil) -> true
   | (LoxNil, _) -> false
-  | (a,b) -> a = b
+  | (a,b) -> equal a b
 
 let is_truthy value = bool_of value
 
@@ -39,3 +41,5 @@ let call value args =
   match value with
   | LoxFunction f -> f.callable args
   | _ -> failwith "not callable"
+
+let print v = (Printf.printf "%s") (to_string v)

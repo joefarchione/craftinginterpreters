@@ -1,3 +1,5 @@
+open Core 
+
 type tag = 
   | LEFT_PAREN
   | RIGHT_PAREN
@@ -37,8 +39,7 @@ type tag =
   | TRUE
   | VAR
   | WHILE
-  | EOF
-  [@@deriving  eq, show { with_path = false }]
+  [@@deriving  eq, sexp, show { with_path = false }]
 
 
 let get_keyword text =
@@ -69,4 +70,13 @@ type t =  {
   literal: Value.t;
   line: int; 
 }
-[@@deriving  eq, show { with_path = false }]
+[@@deriving  eq, sexp, show { with_path = false }]
+
+let print token = 
+  (Printf.printf "%s\n") (show token);
+  (Printf.printf "\n");
+  ()
+
+let print_tokens tokens = 
+  List.iter tokens ~f:print;
+  (Printf.printf "\n");

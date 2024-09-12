@@ -1,71 +1,79 @@
 open Core
 
-type state = {
-  env: Environment.t;
-  resolver: Resolver.t;
-}
+module State = struct
+  type t = {
+    env: Environment.t;
+    resolver: Resolver.t;
+  }
 
-let lookup_variable token expr state =
+  let empty = {env=Environment.empty; resolver=Resolver.create ();}
+end
+
+let lookup_variable token expr (state:State.t) =
   let distance = Resolver.Locals.get expr state.resolver.locals  in
   match distance with
-  | Some(v) -> Environment.get_at v token state.env
-  | None -> Environment.get (Environment.get_global state.env) token
-
-let state_assign (token:Token.t) (expr:Expression.t) (value: Value.t) (state:state) = 
-  let distance = Resolver.Locals.get expr state.resolver.locals  in
-  match distance with
-  | Some(v) -> Environment.assign_at v token value state.env
+  | Some(v) -> 
+      Environment.get_at v token state.env
   | None -> 
-    let global_env = Environment.get_global state.env in 
-    Environment.assign global_env token value
+      Environment.ValuesMap.get token (Environment.get_global state.env) 
 
-let rec evaluate_expr (expr: Expression.t) (state: state): Value.t * state = 
+let state_assign (token:Token.t) (expr:Expression.t) (value: Value.t) (state:State.t) = 
+  let distance = Resolver.Locals.get expr state.resolver.locals  in
+  let new_env = 
+    match distance with
+    | Some(d) ->  Environment.assign_at d token value state.env
+    | None -> Environment.assign_at (List.length state.env) token value state.env in 
+  {state with env = new_env}
+
+let rec evaluate_expr (expr: Expression.t) (state:State.t): Value.t * State.t = 
   match expr with 
   | Literal (l) ->  l, state
   | BinaryOp (a, o, b) ->  (
     let left, state  = evaluate_expr a state in 
     let right, state = evaluate_expr b state in 
     let value = 
-      match (o, left, right) with 
-      | (Plus, LoxString(l), LoxString(r)) ->  (Value.LoxString (l ^ r))
-      | (Plus, LoxNumber (l), LoxNumber (r)) ->   (Value.LoxNumber (l +. r))
-      | (Minus, LoxNumber(l), LoxNumber (r)) ->  (Value.LoxNumber (l -. r))
-      | (Slash, LoxNumber(l), LoxNumber (r)) -> (Value.LoxNumber (l /.r ))
-      | (Star, LoxNumber(l), LoxNumber (r)) -> (Value.LoxNumber (l *. r))
-      | (Greater, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l > r))
-      | (Greater_equal, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l >= r))
-      | (Less, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l < r))
-      | (Less_equal, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l <= r))
-      | (Bang_equal, _, _) -> (Value.LoxBool (not (Value.is_equal left right)))
-      | (Equal_equal, _, _) -> (Value.LoxBool (Value.is_equal left right))
+      match (o.tag, left, right) with 
+      | (Token.PLUS, LoxString(l), LoxString(r)) ->  (Value.LoxString (l ^ r))
+      | (Token.PLUS, LoxNumber (l), LoxNumber (r)) -> (Value.LoxNumber (l +. r))
+      | (Token.MINUS, LoxNumber(l), LoxNumber (r)) ->  (Value.LoxNumber (l -. r))
+      | (Token.SLASH, LoxNumber(l), LoxNumber (r)) -> (Value.LoxNumber (l /.r ))
+      | (Token.STAR, LoxNumber(l), LoxNumber (r)) -> (Value.LoxNumber (l *. r))
+      | (Token.GREATER, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l > r))
+      | (Token.GREATER_EQUAL, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l >= r))
+      | (Token.LESS, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l < r))
+      | (Token.LESS_EQUAL, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l <= r))
+      | (Token.BANG_EQUAL, _, _) -> (Value.LoxBool (not (Value.is_equal left right)))
+      | (Token.EQUAL_EQUAL, _, _) -> (Value.LoxBool (Value.is_equal left right))
       | _ -> raise (Lox_error.EvalError {expr}) in 
     value, state
   )
   | Unary (o, a) -> (
     let right, state  = evaluate_expr a state in 
     let value = 
-      match o with 
-      | Bang -> Value.LoxBool (Value.is_truthy right)
-      | Minus -> Value.LoxNumber (-1.0 *. (Value.float_of right))
+      match o.tag with 
+      | Token.BANG -> Value.LoxBool (Value.is_truthy right)
+      | Token.MINUS -> Value.LoxNumber (-1.0 *. (Value.float_of right))
       | _ -> raise (Lox_error.EvalError {expr}) in 
     value, state
   )
   | Grouping (e) -> (evaluate_expr e state)
-  | Variable (v) -> (lookup_variable v expr state), state
+  | Variable (v) -> 
+      (lookup_variable v expr state), state
   | Assignment (token, expr) -> 
-      let value, state = evaluate_expr expr state in 
-      let env = state_assign token expr value state in 
-      value, {state with env = env}
+      evaluate_expr expr state 
+      |> (fun (value, state) -> 
+        (value, state_assign token expr value state)) 
   | Logical (a, o, b) -> 
     let (left, env) = evaluate_expr a state in
     let (value, env) = 
-      match o with 
-        | And -> 
+      match o.tag with 
+        | Token.AND -> 
           if not (Value.is_truthy left) then left, env
           else evaluate_expr b env
-        | Or -> 
+        | Token.OR -> 
           if (Value.is_truthy left) then left, env
-          else evaluate_expr b env in 
+          else evaluate_expr b env 
+        | _ -> raise Lox_error.(ParseError {line=o.line; lexeme=o.lexeme; message="ill-formed logical"}) in 
     value, env
   | Call (callee, _, arguments) -> 
     let (callee, env) = evaluate_expr callee state in
@@ -77,42 +85,41 @@ let rec evaluate_expr (expr: Expression.t) (state: state): Value.t * state =
       else  raise (Lox_error.EvalError {expr}) 
     | _ ->  raise (Lox_error.EvalError {expr}) 
 
-let rec evaluate_statement (statements: Statement.t list) (state: state) : state= 
+let rec evaluate_statements (statements: Statement.t list) (state:State.t) :State.t= 
   match statements with
   | [] -> state
-  | hd:: tl -> (
+  | hd :: tl -> (
       match hd with 
       | Statement.Expression (expr) -> 
         ignore (evaluate_expr expr state);
-        evaluate_statement tl state
+        evaluate_statements tl state
       | Statement.Print (expr) -> (
         let value, state = evaluate_expr expr state in 
-        (Printf.printf "%s") (Value.to_string value);
-        evaluate_statement tl state
+        Value.print value;
+        evaluate_statements tl state
       ) 
       | Statement.VarDeclaration {name; init;} -> (
         let value, state = 
           match init with
           | Some (v) -> evaluate_expr v state 
           | None -> LoxNil, state in 
-        let env = Environment.assign state.env name value in 
-        evaluate_statement tl {state with env = env}
+        let env = Environment.define name.lexeme value state.env in 
+        evaluate_statements tl {state with env = env}
       )
       | Statement.Block (b) -> (
-        let local_scope = Environment.create_local state.env in 
-        let _ = evaluate_statement b {state with env = local_scope} in 
+        let _ = evaluate_statements b state in 
         state
       )
       | Statement.If (condition, then_branch) -> 
         let _ = (
           if Value.is_truthy (evaluate_expr condition state |> (fun (expr, _) -> expr)) 
-          then ignore (evaluate_statement [then_branch] state)) in 
+          then ignore (evaluate_statements [then_branch] state)) in 
         state
       | Statement.IfElse (condition, then_branch, else_branch) -> 
         let _ = (
           if Value.is_truthy (evaluate_expr condition state |> (fun (expr, _) -> expr)) 
-          then ignore(evaluate_statement [then_branch] state)
-          else ignore(evaluate_statement [else_branch] state)) in 
+          then ignore(evaluate_statements [then_branch] state)
+          else ignore(evaluate_statements [else_branch] state)) in 
         state
       | Statement.While (condition, body) -> 
         ignore (interpret_while condition body state);
@@ -130,22 +137,22 @@ let rec evaluate_statement (statements: Statement.t list) (state: state) : state
           match init with 
           | Some (i) -> Statement.Block [i; body]
           | None -> body in
-        ignore (evaluate_statement [body] state);
+        ignore (evaluate_statements [body] state);
         state
       | Statement.FunctionDeclaration (name, params, body) -> 
         let global_env = Environment.get_global state.env in 
-        let func_env = Environment.create_local global_env in
+        let func_env = Environment.create_local [global_env] in
         let call_func (args: Value.t list) : Value.t = 
-          let closure = List.fold2 params args ~init:func_env ~f:(fun acc p a -> Environment.define acc p.lexeme a) in 
+          let closure = List.fold2 params args ~init:func_env ~f:(fun acc p a -> Environment.define p.lexeme a acc) in 
           let closure = match closure with 
           | Ok (e) -> e
           | Unequal_lengths -> Lox_error.too_few_arguments_supplied () in 
           try 
-            ignore (evaluate_statement body {state with env = closure});
+            ignore (evaluate_statements body {state with env = closure});
             Value.LoxNil 
           with 
             | Lox_error.ReturnError (v) -> v in 
-        let env = Environment.define func_env name.lexeme (Value.LoxFunction {name = name.lexeme; arity = List.length params; callable = call_func}) in 
+        let env = Environment.define name.lexeme (Value.LoxFunction {name = name.lexeme; arity = List.length params; callable = call_func}) func_env in 
         {state with env = env}
       | Statement.Return (expr) -> 
         match expr with 
@@ -158,10 +165,30 @@ let rec evaluate_statement (statements: Statement.t list) (state: state) : state
 and interpret_while condition body env = 
   let (value, env) = evaluate_expr condition env in 
   if Value.is_truthy value then 
-    let env = evaluate_statement [body] env in 
+    let env = evaluate_statements [body] env in 
     ignore (interpret_while condition body env);
   else ()
 
-and interpret tokens = 
-  let statements = Parser.parse tokens in 
-  evaluate_statement statements
+and interpret text = 
+  let state = State.empty in
+  let statements = 
+    Lexer.scan_text text
+    |> Parser.parse in 
+  Statement.print_statements statements;
+  let resolver = Resolver.resolve statements state.resolver in 
+  ignore (evaluate_statements statements {state with resolver = resolver});
+  ()
+  (* with 
+  | Lox_error.ParseError (e) -> Lox_error.report_parse_error e *)
+
+let%test "function_call" = 
+  ignore (
+    let text = "
+    fun add(a, b, c) {
+      print a + b + c;
+    }
+    print add(1, 2, 3);
+    " in  
+    interpret text
+  );
+  true
