@@ -1,7 +1,7 @@
 open Core
 
 module ValuesMap = struct 
-  type t = (string, Value.t, String.comparator_witness) Map.t
+  type t = Value.t Map.M(String).t [@@deriving sexp]
 
   let empty = Map.empty (module String)
   let to_list t = Map.to_alist t
@@ -22,10 +22,13 @@ module ValuesMap = struct
       else 
         raise Lox_error.(RunTimeError (token.lexeme, "Undefined variable"))
 
-    let get (token: Token.t) (t:t) = 
-      match Map.find t token.lexeme with 
-        | Some v -> v
-        | None -> raise Lox_error.(RunTimeError (token.lexeme, "Undefined variable"))
+  let print t = Format.printf "%a\n" Sexp.pp_hum ([%sexp_of: t] t)
+
+  let get (token: Token.t) (t:t) = 
+    match Map.find t token.lexeme with 
+      | Some v -> v
+      | None -> raise Lox_error.(RunTimeError (token.lexeme, "Undefined variable"))
+    
 
 end
 

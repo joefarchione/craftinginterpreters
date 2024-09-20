@@ -70,7 +70,8 @@ module Locals = struct
     | `Duplicate -> Map.set t ~key:k ~data:v
 
   let print t = 
-    Map.iter t ~f:(fun b -> ((Printf.printf "%d") b))
+    Map.iter_keys t ~f:(fun b -> ((Printf.printf "%s\n") (Expression.show b)));
+    Map.iter t ~f:(fun b -> ((Printf.printf "%d\n") b));
 end
 
 type function_type = 
