@@ -10,8 +10,8 @@ type t =
 
 and lox_function =
   { 
-    arity : int;
     name : string;
+    arity : int;
     callable : t list -> t [@equal fun _ _ -> false]  (* no equality for functions *)
   }
   [@@deriving show { with_path = false }, eq]

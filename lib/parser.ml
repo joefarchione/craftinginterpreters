@@ -253,13 +253,18 @@ and function_statement (tokens: Token.t list) (kind: string): (Statement.t * Tok
   let (parameters, rem_tokens) = 
     consume rem_tokens Token.IDENTIFIER message 
     |> (fun (p, t) -> collect_parameters t [p]) in 
-  
-  let message = (Printf.sprintf "Expect ')' after parameters") in 
-  let (_, rem_tokens) = consume rem_tokens Token.RIGHT_PAREN message  in 
-  let message = (Printf.sprintf "Expect '{' after parameters declared") in 
-  let (_, rem_tokens) = consume rem_tokens Token.LEFT_BRACE message  in 
+
+  let (_, rem_tokens) =
+    (Printf.sprintf "Expect ')' after parameters")
+    |> consume rem_tokens Token.RIGHT_PAREN   in 
+
+  let (_, rem_tokens) = 
+  (Printf.sprintf "Expect '{' after parameters declared") 
+  |> consume rem_tokens Token.LEFT_BRACE   in 
+
   let (body, rem_tokens) = block rem_tokens [] in 
   let body = match body with | Statement.Block (b) -> b | _ -> [body;] in 
+
   Statement.FunctionDeclaration (name, parameters, body), rem_tokens
 
 and return_statement (tokens: Token.t list) : (Statement.t * Token.t list) =
