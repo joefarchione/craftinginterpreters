@@ -39,7 +39,7 @@ type tag =
   | TRUE
   | VAR
   | WHILE
-  [@@deriving  eq, sexp, show { with_path = false }]
+  [@@deriving  eq, compare, sexp, show { with_path = false }]
 
 
 let get_keyword text =
@@ -70,7 +70,7 @@ type t =  {
   literal: Value.t;
   line: int; 
 }
-[@@deriving  eq, sexp, show { with_path = false }]
+[@@deriving  eq, compare, sexp, show { with_path = false }]
 
 let print token = 
   (Printf.printf "%s\n") (show token);

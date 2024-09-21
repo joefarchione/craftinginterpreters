@@ -6,15 +6,15 @@ type t =
   | LoxString of string
   | LoxNil 
   | LoxFunction of lox_function
-  [@@deriving eq, sexp, show { with_path = false }]
+  [@@deriving eq, compare, sexp, show { with_path = false }]
 
 and lox_function =
   { 
     name : string;
     arity : int;
-    callable : t list -> t [@equal fun _ _ -> false]  (* no equality for functions *)
+    callable : t list -> t [@equal fun _ _ -> false] [@compare.ignore]  (* no equality for functions *)
   }
-  [@@deriving show { with_path = false }, eq]
+  [@@deriving compare, show { with_path = false }, eq]
 
 
 let to_string v = 
@@ -26,7 +26,7 @@ let to_string v =
   | LoxFunction f -> Printf.sprintf "<fn %s>" f.name
 
 let float_of = function | LoxNumber (x) -> x | _ -> failwith "not a float"
-let bool_of = function | LoxBool (x) -> x | _ -> true
+let bool_of = function | LoxBool (x) -> x | LoxNil -> false |  _ -> true
 let string_of = function | LoxString (x) -> x | _ -> failwith "not a string"
 
 let is_equal a b = 

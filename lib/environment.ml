@@ -1,11 +1,7 @@
 open Core
 
-module ValuesMap = struct 
-  type t = Value.t Map.M(String).t [@@deriving sexp]
-
-  let empty = Map.empty (module String)
-  let to_list t = Map.to_alist t
-
+module ValuesMap = struct
+  include Coremap.SexpEqShowMap(String [@deriving compare, sexp])(Value)
   let define k v t  = 
     match Map.add t ~key:k ~data:v with
     | `Ok (v) -> v
@@ -22,19 +18,24 @@ module ValuesMap = struct
       else 
         raise Lox_error.(RunTimeError (token.lexeme, "Undefined variable"))
 
-  let print t = Format.printf "%a\n" Sexp.pp_hum ([%sexp_of: t] t)
 
   let get (token: Token.t) (t:t) = 
     match Map.find t token.lexeme with 
       | Some v -> v
       | None -> raise Lox_error.(RunTimeError (token.lexeme, "Undefined variable"))
     
+end 
 
-end
-
-type t = ValuesMap.t list
+type t = ValuesMap.t list [@@deriving show {with_path=false}]
 let empty = ValuesMap.empty :: []
 let is_empty t = List.is_empty t
+
+let print (t:t) = List.iter t ~f:(fun m -> ValuesMap.print m)
+
+let pop (t:t) = 
+  match t with 
+  | _ :: tl -> tl
+  | _ -> failwith "only one environment"
 
 let rec get (token: Token.t) (t:t) : Value.t = 
   match t with 
@@ -70,12 +71,13 @@ let get_global (t:t) : ValuesMap.t =
   | Some (l) -> l
   | None -> ValuesMap.empty
 
-let ancestor distance (t:t) = 
+let ancestor (distance:int) (t:t) = 
   match List.nth t distance with 
   | Some(l) -> l
   | None -> raise Lox_error.(RunTimeError (Printf.sprintf "%d" distance, "Undefined environment"))
 
 let get_at distance token t = ancestor distance t |> ValuesMap.get token
+
 let assign_at (distance:int) (token:Token.t) (value: Value.t) (t:t) = 
   List.mapi t ~f:(fun idx env -> 
     if idx = distance then 
