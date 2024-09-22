@@ -3,10 +3,10 @@ open Core
 module SexpEqShowMap = functor 
   (K : sig
       type t
-      include Sexpable with type t := t
-      include Comparable with type t := t
+      include Sexpable.S with type t := t
+      include Comparable.S with type t := t
    end) 
-  (S: Sexpable) -> struct
+  (S: Sexpable.S) -> struct
 
   type t = S.t Map.M(K).t [@@deriving sexp]
 
@@ -26,6 +26,13 @@ module SexpEqShowMap = functor
     match Map.find t k with 
     | Some (v) -> v
     | None -> failwith "couldn't find"
+
+  let set k v t  = 
+    match Map.add t ~key:k ~data:v with
+    | `Ok (v) -> v
+    | `Duplicate -> Map.set t ~key:k ~data:v
+
+
 
   let print t = Format.printf "%s\n" (show t)
 end

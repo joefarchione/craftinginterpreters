@@ -24,8 +24,8 @@ let state_assign (token:Token.t) (expr:Expression.t) (value: Value.t) (state:Sta
   let distance = Resolver.Locals.get expr state.resolver.locals  in
   let new_env = 
     match distance with
-    | Some (d) ->  Environment.assign_at d token value state.env
-    | None -> Environment.assign_at (List.length state.env) token value state.env in 
+    | Some (d) ->  Environment.assign_at d token.lexeme value state.env
+    | None -> Environment.assign_at (List.length state.env) token.lexeme value state.env in 
   {state with env = new_env}
 
 let rec evaluate_expr (expr: Expression.t) (state:State.t): Value.t * State.t = 
@@ -61,7 +61,7 @@ let rec evaluate_expr (expr: Expression.t) (state:State.t): Value.t * State.t =
   )
   | Grouping (e) -> (evaluate_expr e state)
   | Variable (token) -> 
-      (lookup_variable token expr state), state
+      (lookup_variable token.lexeme expr state), state
   | Assignment (token, expr) -> 
       evaluate_expr expr state 
       |> (fun (value, state) -> 
@@ -84,15 +84,35 @@ let rec evaluate_expr (expr: Expression.t) (state:State.t): Value.t * State.t =
     match callee with 
     | Value.LoxFunction f when List.length eval_args = f.arity -> 
       (Value.call callee eval_args, env)
+    | Value.LoxClass _ -> 
+      (Value.call callee eval_args, env)
     | _ ->  raise (Lox_error.EvalError expr) 
   )
-  (* | Get (name, expr) -> (
+  | Get (name, expr) -> (
     let (lox_object, state) = evaluate_expr name state in 
     match lox_object with 
-    | LoxInstance i -> i.get(expr)
+    | LoxInstance i -> 
+      Value.get_property expr.lexeme i, state
     | _ -> raise Lox_error.(RunTimeError (expr.lexeme, "Only instances have properties"))
-  ) *)
-  | _ -> failwith "not implemented"
+  ) 
+  | Set (name, token, value) -> (
+    let (lox_object, state) = evaluate_expr name state in 
+    match lox_object with 
+    | LoxInstance instance -> 
+      let (value, state) = evaluate_expr value state in
+      let instance = (Value.set_property token.lexeme value instance) in
+      let env = 
+        match name with 
+        | Expression.Variable (v) -> 
+          Environment.assign v.lexeme (LoxInstance instance) state.env 
+        | _ -> state.env in 
+      LoxInstance instance, {state with env = env}
+    | _ -> raise Lox_error.(RunTimeError (token.lexeme, "Only instances have fields"))
+  )
+  | This (token) -> (
+    (lookup_variable token.lexeme expr state), state
+  )
+
 
 let rec evaluate_statement (statement: Statement.t) (state:State.t) :State.t= 
     match statement with 
@@ -141,24 +161,29 @@ let rec evaluate_statement (statement: Statement.t) (state:State.t) :State.t=
         ) in
       lox_while condition body state
     )
-    | Statement.ClassDeclaration (_, _) -> 
-      failwith "not implemented"
+    | Statement.ClassDeclaration (token, method_stmts) ->  (
+      let env = Environment.define token.lexeme Value.LoxNil state.env in
+      let methods = 
+        List.fold method_stmts ~init:Value.ClassFields.empty 
+          ~f:(fun acc m -> 
+            match m with  
+            | FunctionDeclaration (name, params, body) -> 
+              Value.ClassFields.set name.lexeme (create_lox_method name params body state) acc
+            | _ -> failwith "only expected function declaratations here"
+          ) in 
+      
+      let arity = (
+        match Value.find_method "init" methods with
+        | Some (Value.LoxFunction(f)) -> f.arity
+        | _ -> 0
+      ) in 
+      let klass = Value.(LoxClass {name=token.lexeme; arity = arity ;methods = methods;}) in 
+      let env = Environment.assign token.lexeme klass env in
+      {state with env = env}
+    )
     | Statement.FunctionDeclaration (name, params, body) ->  (
-      let global_env = Environment.get_global state.env in 
-      let func_env = Environment.create_local [global_env] in
-      let call_func (args: Value.t list) : Value.t = 
-        let closure = 
-          match (List.fold2 params args ~init:func_env ~f:(fun acc p a -> Environment.define p.lexeme a acc)) with 
-          | Ok (e) -> e
-          | Unequal_lengths -> Lox_error.too_few_arguments_supplied () in 
-
-        try (
-          let _ = evaluate_statements body {state with env = closure} in 
-          Value.LoxNil
-        )
-        with 
-          | Lox_error.ReturnError (v) -> v in 
-      let env = Environment.define name.lexeme (Value.LoxFunction {name = name.lexeme; arity = List.length params; callable = call_func}) state.env in 
+      let lox_function = create_lox_function name params body state in 
+      let env = Environment.define name.lexeme lox_function state.env in 
       {state with env = env}
     )
     | Statement.For (init, condition, increment, body) -> (
@@ -190,8 +215,50 @@ let rec evaluate_statement (statement: Statement.t) (state:State.t) :State.t=
         raise (Lox_error.ReturnError value)
       | None  -> raise (Lox_error.ReturnError Value.LoxNil)
 
+and create_lox_function (name: Token.t) (params: Token.t list) (body: Statement.t list) (state: State.t) = 
+    let global_env = Environment.get_global state.env in 
+    let func_env = Environment.create_local [global_env] in
+    let call_func (args: Value.t list) : Value.t = 
+      let closure = 
+        match (List.fold2 params args ~init:func_env ~f:(fun acc p a -> Environment.define p.lexeme a acc)) with 
+        | Ok (e) -> e
+        | Unequal_lengths -> Lox_error.too_few_arguments_supplied () in 
 
+      try (
+        let _ = evaluate_statements body {state with env = closure} in 
+        Value.LoxNil
+      )
+      with 
+        | Lox_error.ReturnError (v) -> v in 
+    Value.LoxFunction {name = name.lexeme; arity = List.length params; callable = call_func}
 
+and create_lox_method (name: Token.t) (params: Token.t list) (body: Statement.t list) (state: State.t) = 
+    let global_env = Environment.get_global state.env in 
+    let func_env = Environment.create_local [global_env] in
+    let call_func (instance: Value.lox_instance) (args: Value.t list) : Value.t = 
+      let closure = 
+        Environment.create_local func_env
+        |> Environment.define "this" (Value.LoxInstance(instance)) in 
+      let closure = 
+        match (List.fold2 params args ~init:closure ~f:(fun acc p a -> Environment.define p.lexeme a acc)) with 
+        | Ok (e) -> e
+        | Unequal_lengths -> Lox_error.too_few_arguments_supplied () in 
+
+      try (
+        let _ = evaluate_statements body {state with env = closure} in 
+        if String.equal name.lexeme "init" then 
+          Environment.get_at 0 "this" closure
+        else
+          Value.LoxNil
+      )
+      with 
+        | Lox_error.ReturnError (v) -> (
+          if String.equal name.lexeme "init" then 
+            Environment.get_at 0 "this" closure
+          else
+            v
+        ) in 
+    Value.LoxMethod {name = name.lexeme; arity = List.length params; callable = call_func}
 and evaluate_statements (stmts: Statement.t list) (state: State.t) : State.t = 
   List.fold 
     stmts

@@ -8,6 +8,11 @@ let consume (tag: Token.tag) (message: string) (tokens: Token.t list)  =
   | hd :: _ -> raise Lox_error.(ParseError {line=hd.line;lexeme=hd.lexeme;message=message;})
   | [] ->  raise Lox_error.(ParseError {line=(-1); lexeme="EOF";message=message})
 
+let consume_some_identifier  (tokens: Token.t list)  = 
+  match tokens with 
+  | hd :: tl when (Token.equal_tag hd.tag Token.IDENTIFIER) -> (Some hd, tl)
+  | _ -> None, tokens 
+
 let rec primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
   match tokens with 
   | [] -> Lox_error.out_of_tokens ()
@@ -23,6 +28,7 @@ let rec primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
       let (_, rem_tokens) = consume  RIGHT_PAREN "Expect ')' after expression" rem_tokens in 
       (Expression.(Grouping exprs), rem_tokens)
     )
+    | Token.THIS -> Expression.This (hd), tl
     | Token.IDENTIFIER -> Expression.(Variable hd), tl
     | Token.FUN -> call tokens
     | _ ->  
@@ -127,6 +133,10 @@ and assignment (tokens: Token.t list): (Expression.t * Token.t list) =
   | (Expression.Variable (v), hd::tl) when (Token.equal_tag hd.tag Token.EQUAL) -> 
     let (value, rem_tokens) = assignment tl in 
     (Expression.Assignment (v, value), rem_tokens)
+  | (Expression.Get (name, token), hd::tl) when (Token.equal_tag hd.tag Token.EQUAL) -> (
+    let (value, rem_tokens) = assignment tl in 
+    (Expression.Set (name, token, value), rem_tokens)
+  )
   | (_, _) -> (left, rem_tokens)
 
 and expression tokens = assignment tokens
@@ -148,6 +158,7 @@ and statement (tokens: Token.t list)  =
       match hd.tag with
       | Token.PRINT -> print_statement tl
       | Token.VAR -> var_declaration tl
+      | Token.CLASS -> class_declaration tl
       | Token.LEFT_BRACE -> block tl []
       | Token.IF -> if_statement tl
       | Token.FUN -> function_statement tl "function"
@@ -278,8 +289,9 @@ and function_statement (tokens: Token.t list) (kind: string): (Statement.t * Tok
     | _  -> (parameters, tokens) in 
 
   let (parameters, rem_tokens) = 
-    consume Token.IDENTIFIER message rem_tokens
-    |> (fun (p, t) -> collect_parameters t [p]) in 
+    match consume_some_identifier rem_tokens with
+    | (Some (a), rem_tokens) -> collect_parameters rem_tokens [a] 
+    | (None, rem_tokens) -> [], rem_tokens in 
 
   let (_, rem_tokens) =
     let message = (Printf.sprintf "Expect ')' after parameters") in 

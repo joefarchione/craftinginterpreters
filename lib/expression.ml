@@ -12,6 +12,7 @@ module Expression = struct
   | Logical of t * Token.t * t
   | Get of t  * Token.t
   | Set of t * Token.t * t
+  | This of Token.t
   [@@deriving eq, sexp, compare, show { with_path = false }]
 
   let print t = (Printf.printf "%s\n" (show t))

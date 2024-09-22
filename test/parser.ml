@@ -169,4 +169,103 @@ let%expect_test "short_circuit" =
           { tag = OR; lexeme = "or"; literal = LoxNil; line = 3 },
           (Literal (LoxString "yes")))))
     |}]
-;; 
+;;  
+
+let%expect_test "class_declaration" = 
+  "
+   class Bacon {
+   eat() {
+      print \"Crunch crunch crunch!\";
+   }
+   }
+
+   Bacon().eat();
+  "
+   |> Lexer.scan_text 
+   |> Parser.parse 
+   |> Statement.print_statements;
+  [%expect {|
+    (ClassDeclaration (
+       { tag = IDENTIFIER; lexeme = "Bacon"; literal = LoxNil; line = 2 },
+       [(FunctionDeclaration (
+           { tag = IDENTIFIER; lexeme = "eat"; literal = LoxNil; line = 3 },
+           [], [(Print (Literal (LoxString "Crunch crunch crunch!")))]))
+         ]
+       ))
+    (Expression
+       (Call (
+          (Get (
+             (Call (
+                (Variable
+                   { tag = IDENTIFIER; lexeme = "Bacon"; literal = LoxNil;
+                     line = 8 }),
+                { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 8 },
+                [])),
+             { tag = IDENTIFIER; lexeme = "eat"; literal = LoxNil; line = 8 })),
+          { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 8 },
+          [])))
+    |}]
+;;  
+
+let%expect_test "class_declaration" = 
+   "
+   class Box {}
+
+   fun notMethod(argument) {
+      print \"called function with \" + argument;
+   }
+
+   var box = Box();
+   box.function = notMethod;
+   box.function(\"argument\");
+  "
+   |> Lexer.scan_text 
+   |> Parser.parse 
+   |> Statement.print_statements;
+  [%expect {|
+    (ClassDeclaration (
+       { tag = IDENTIFIER; lexeme = "Box"; literal = LoxNil; line = 2 },
+       []))
+    (FunctionDeclaration (
+       { tag = IDENTIFIER; lexeme = "notMethod"; literal = LoxNil; line = 4 },
+       [{ tag = IDENTIFIER; lexeme = "argument"; literal = LoxNil; line = 4 }],
+       [(Print
+           (BinaryOp ((Literal (LoxString "called function with ")),
+              { tag = PLUS; lexeme = "+"; literal = LoxNil; line = 5 },
+              (Variable
+                 { tag = IDENTIFIER; lexeme = "argument"; literal = LoxNil;
+                   line = 5 })
+              )))
+         ]
+       ))
+    (VarDeclaration
+       { name = { tag = IDENTIFIER; lexeme = "box"; literal = LoxNil; line = 8 };
+         init =
+         (Some (Call (
+                  (Variable
+                     { tag = IDENTIFIER; lexeme = "Box"; literal = LoxNil;
+                       line = 8 }),
+                  { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 8 },
+                  [])))
+         })
+    (Expression
+       (Set (
+          (Variable
+             { tag = IDENTIFIER; lexeme = "box"; literal = LoxNil; line = 9 }),
+          { tag = IDENTIFIER; lexeme = "function"; literal = LoxNil; line = 9 },
+          (Variable
+             { tag = IDENTIFIER; lexeme = "notMethod"; literal = LoxNil;
+               line = 9 })
+          )))
+    (Expression
+       (Call (
+          (Get (
+             (Variable
+                { tag = IDENTIFIER; lexeme = "box"; literal = LoxNil; line = 10 }),
+             { tag = IDENTIFIER; lexeme = "function"; literal = LoxNil; line = 10
+               }
+             )),
+          { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 10 },
+          [(Literal (LoxString "argument"))])))
+    |}]
+;;

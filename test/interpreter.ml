@@ -50,7 +50,7 @@ let%expect_test "init_for_local_variable" =
     with 
     | Lox_error.RunTimeError (variable, message)  -> Printf.printf "%s %s" variable message;
   [%expect {| a Can't read local variable in it's own initializer |}]
-;;
+;; 
 
 let%expect_test "for_loop" = 
     "
@@ -59,3 +59,35 @@ let%expect_test "for_loop" =
     |> Interpreter.interpret;
   [%expect {| 0123456789 |}]
 ;;
+
+
+let%expect_test "class_declaration" = 
+  "
+   class Bacon {
+   eat() {
+      print \"Crunch crunch crunch!\";
+   }
+   }
+
+   Bacon().eat();
+  "
+  |> Interpreter.interpret;
+  [%expect {| Crunch crunch crunch! |}]
+;; 
+
+let%expect_test "class_function_as_property" = 
+   "
+   class Box {}
+
+   fun notMethod(argument) {
+      print \"called function with \" + argument;
+   }
+
+   var box = Box();
+   box.function = notMethod;
+   box.function(\"argument\");
+  "
+  |> Interpreter.interpret;
+  [%expect {| called function with argument |}]
+;;
+
