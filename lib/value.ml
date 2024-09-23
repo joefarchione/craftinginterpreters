@@ -106,9 +106,14 @@ module Value = struct
     | LoxInstance i -> Printf.sprintf "Instance of %s" i.klass.name
     | LoxMethod f -> Printf.sprintf "<method %s>" f.name
 
-  let float_of = function | LoxNumber (x) -> x | _ -> failwith "not a float"
+  let float_of t = 
+    match t with
+    | LoxNumber (x) -> x 
+    | _ -> raise Lox_error.(RunTimeError ("Not a number", (to_string t)))
   let bool_of = function | LoxBool (x) -> x | LoxNil -> false |  _ -> true
-  let string_of = function | LoxString (x) -> x | _ -> failwith "not a string"
+  let string_of t = 
+    match t with 
+     LoxString (x) -> x | _ -> raise Lox_error.(RunTimeError ("Not a string", (to_string t)))
 
   let is_equal a b = 
     match (a, b)  with 
@@ -159,20 +164,40 @@ module Value = struct
         )
         | _ -> LoxInstance instance
     )
-    | _ -> failwith "not callable"
+    | _ -> raise Lox_error.(RunTimeError ("Not callable", (to_string value)))
+
+  let rec rec_get_property (name: string) (something: t) : t = 
+    match something with 
+    | LoxClass (c) -> (
+      match Map.find c.methods name with 
+      | Some (m) -> m
+      | None -> (
+        match c.superclass with
+        | Some (c) -> rec_get_property name (LoxClass(c))
+        | None -> raise Lox_error.(RunTimeError ("No property", Printf.sprintf "%s %s" name (to_string something)))
+      )
+    )
+
+    | LoxInstance (i) -> (
+      match Map.find i.fields name with 
+      | Some (m) -> m
+      | None -> rec_get_property name (LoxClass(i.klass))
+    )
+    | _ -> raise Lox_error.(RunTimeError ("Expected class or method", ""))
 
   let get_property (name: string) (instance: lox_instance) : t = 
-    match Map.find instance.fields name with 
+    (* match Map.find instance.fields name with 
     | Some (v) -> v
     | None -> (
       match find_method name instance with
       | Some (lm) -> (
         match lm with  
         | LoxMethod (m) -> bind_method m instance |> LoxFunction
-        | _ -> failwith "only expected methods"
+        | _ -> raise Lox_error.(RunTimeError ("Expected method", Printf.sprintf "%s %s" (to_string lm) (instance.klass.name)))
       )
-      | None -> failwith "undefined property"
-    )
+      | None -> raise Lox_error.(RunTimeError ("Undefined property", Printf.sprintf "Could not find property '%s' on 'Instance %s'" name (instance.klass.name)))
+    ) *)
+    rec_get_property name (LoxInstance(instance))
 
   let set_property (name: string) (value: t) (instance: lox_instance) : lox_instance = 
     let fields = ClassFields.set name value instance.fields in

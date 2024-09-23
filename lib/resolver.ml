@@ -197,7 +197,7 @@ and resolve_stmt (stmt: Statement.t) (t:t) =
             | Variable (v) -> String.equal v.lexeme name.lexeme
             | _ -> false in 
           if circular_inheritance then 
-            failwith "A class cannot inherit from itself."
+            raise (ResolverError (name.lexeme, "A class cannot inherit from itself."))
           else
             {t with current_class = Some Subclass} 
             |> resolve_expr s 

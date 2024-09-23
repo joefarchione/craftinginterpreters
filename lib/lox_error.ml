@@ -8,8 +8,6 @@ exception ParseError of parse_error
 exception ArgumentLengthExceeded of string
 exception RunTimeError of string * string
 exception TooFewArgumentsSupplied of string
-exception ReturnError of Value.t
-exception EvalError of Expression.t
 
 let too_many_arguments () = 
   raise (ArgumentLengthExceeded "Can't have more than 255 arguments")

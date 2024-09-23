@@ -1,5 +1,7 @@
 open Core
 
+exception ReturnError of Value.t
+
 module State = struct
   type t = {
     env: Environment.t;
@@ -47,7 +49,7 @@ let rec evaluate_expr (expr: Expression.t) (state:State.t): Value.t * State.t =
       | (Token.LESS_EQUAL, LoxNumber(l), LoxNumber (r)) -> (Value.LoxBool Float.(l <= r))
       | (Token.BANG_EQUAL, _, _) -> (Value.LoxBool (not (Value.is_equal left right)))
       | (Token.EQUAL_EQUAL, _, _) -> (Value.LoxBool (Value.is_equal left right))
-      | _ -> raise (Lox_error.EvalError expr) in 
+      | _ -> raise (Expression.EvalError expr) in 
     value, state
   )
   | Unary (o, a) -> (
@@ -56,7 +58,7 @@ let rec evaluate_expr (expr: Expression.t) (state:State.t): Value.t * State.t =
       match o.tag with 
       | Token.BANG -> Value.LoxBool (Value.is_truthy right)
       | Token.MINUS -> Value.LoxNumber (-1.0 *. (Value.float_of right))
-      | _ -> raise (Lox_error.EvalError expr) in 
+      | _ -> raise (Expression.EvalError expr) in 
     value, state
   )
   | Grouping (e) -> (evaluate_expr e state)
@@ -86,7 +88,9 @@ let rec evaluate_expr (expr: Expression.t) (state:State.t): Value.t * State.t =
       (Value.call callee eval_args, env)
     | Value.LoxClass _ -> 
       (Value.call callee eval_args, env)
-    | _ ->  raise (Lox_error.EvalError expr) 
+    | Value.LoxInstance _ -> 
+      (Value.call callee eval_args, env)
+    | _ ->  raise (Expression.EvalError expr) 
   )
   | Get (name, expr) -> (
     let (lox_object, state) = evaluate_expr name state in 
@@ -262,8 +266,8 @@ let rec evaluate_statement (statement: Statement.t) (state:State.t) :State.t=
       match expr with 
       | Some (e) -> 
         let (value, _) = evaluate_expr e state in 
-        raise (Lox_error.ReturnError value)
-      | None  -> raise (Lox_error.ReturnError Value.LoxNil)
+        raise (ReturnError value)
+      | None  -> raise (ReturnError Value.LoxNil)
 
 and create_lox_function (name: Token.t) (params: Token.t list) (body: Statement.t list) (state: State.t) = 
     let global_env = Environment.get_global state.env in 
@@ -279,7 +283,7 @@ and create_lox_function (name: Token.t) (params: Token.t list) (body: Statement.
         Value.LoxNil
       )
       with 
-        | Lox_error.ReturnError (v) -> v in 
+        | ReturnError (v) -> v in 
     Value.LoxFunction {name = name.lexeme; arity = List.length params; callable = call_func}
 
 and create_lox_method (name: Token.t) (params: Token.t list) (body: Statement.t list) (state: State.t) = 
@@ -302,7 +306,7 @@ and create_lox_method (name: Token.t) (params: Token.t list) (body: Statement.t 
           Value.LoxNil
       )
       with 
-        | Lox_error.ReturnError (v) -> (
+        | ReturnError (v) -> (
           if String.equal name.lexeme "init" then 
             Environment.get_at 0 "this" closure
           else
@@ -325,3 +329,21 @@ and interpret text =
   ()
   (* with 
   | Lox_error.ParseError (e) -> Lox_error.report_parse_error e *)
+
+let prompt () : unit = (
+  let rec repl (state: State.t) = (
+    Printf.printf ">> %!";
+    match In_channel.input_line In_channel.stdin with
+    | None -> failwith "Exiting command line"
+    | Some line -> (
+      let statements = 
+        Lexer.scan_text line
+        |> Parser.parse in 
+      let resolver = Resolver.resolve statements state.resolver in 
+      let state = evaluate_statements statements {state with resolver = resolver} in 
+      repl state
+    ) 
+  ) in 
+  let state = State.empty in
+  repl state
+)

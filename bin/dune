@@ -1,4 +1,5 @@
 (executable
  (public_name olox)
  (name main)
- (libraries olox_lib))
+  (libraries olox_lib core cmdliner )
+  (preprocess (pps ppx_jane)))

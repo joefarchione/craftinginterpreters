@@ -18,6 +18,8 @@ module Expression = struct
 
   let print t = (Printf.printf "%s\n" (show t))
   let print_expressions exprs = List.iter exprs ~f:print
+
+  exception EvalError of t
 end 
 include Comparable.Make(Expression)
 include Expression
