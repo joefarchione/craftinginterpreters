@@ -319,16 +319,21 @@ and evaluate_statements (stmts: Statement.t list) (state: State.t) : State.t =
     ~init:state
     ~f:(fun state stmt -> evaluate_statement stmt state)
 
-and interpret text = 
+and interpret text = (
+  try 
   let state = State.empty in
   let statements = 
     Lexer.scan_text text
     |> Parser.parse in 
   let resolver = Resolver.resolve statements state.resolver in 
   ignore (evaluate_statements statements {state with resolver = resolver});
-  ()
-  (* with 
-  | Lox_error.ParseError (e) -> Lox_error.report_parse_error e *)
+  with 
+    | Lox_error.ParseError (e) -> Printf.printf "%d %s %s" e.line e.lexeme e.message
+    | Expression.EvalError (e) -> Printf.printf "Invalid expression %s" (Expression.show e)
+    | Lox_error.RunTimeError (a, b) ->  Printf.printf "Runtime error : %s %s" a b
+    | Resolver.ResolverError (name, message) ->  Printf.printf "Resover error : %s %s" name message
+    | Lox_error.TooFewArgumentsSupplied (e) -> Printf.printf "%s" e
+)
 
 let prompt () : unit = (
   let rec repl (state: State.t) = (

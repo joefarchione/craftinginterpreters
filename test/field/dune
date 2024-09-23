@@ -1,0 +1,7 @@
+(library
+    (name test_field)
+    (libraries core stdio olox_lib core_unix.sys_unix)
+    (inline_tests)
+    (preprocess (pps ppx_inline_test ppx_assert ppx_deriving.eq  ppx_deriving.show ppx_sexp_conv ppx_sexp_value ppx_sexp_message ppx_jane ppx_expect))
+)
+    
