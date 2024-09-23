@@ -1,3 +1,5 @@
+open Core
+
 type t = {
   source: string;
   tokens: Token.t list;
@@ -16,14 +18,14 @@ let get_char lexer =
   else Some lexer.source.[lexer.current - 1]
 
 let get_lexeme lexer =
-  String.sub lexer.source lexer.start (lexer.current - lexer.start)
+  String.sub lexer.source ~pos:lexer.start ~len:(lexer.current - lexer.start)
 
 let add_token_with_literal lexer token_tag literal =
   let token = Token.{
     tag = token_tag;
     lexeme = get_lexeme lexer;
     literal = literal;
-    line = lexer.line
+    line = lexer.line;
   } in
   {lexer with tokens = token :: lexer.tokens}
 
@@ -67,7 +69,7 @@ let rec add_string lexer =
   if Char.equal (peek lexer) '"' && not (is_eof lexer)  then (
     let lexer = advance_lexer lexer in
     let literal = 
-        Value.LoxString (String.sub lexer.source (lexer.start+1) (lexer.current - lexer.start-2)) in 
+        Value.LoxString (String.sub lexer.source ~pos:(lexer.start+1) ~len:(lexer.current - lexer.start-2)) in 
     add_token_with_literal lexer STRING literal
   )
   else if (is_eof lexer) then 
@@ -125,8 +127,8 @@ let scan_token lexer =
   | '*' -> add_token lexer STAR  
   | '!' -> add_double_token lexer BANG_EQUAL BANG 
   | '=' -> add_double_token lexer EQUAL_EQUAL EQUAL 
-  | '<' -> add_double_token lexer GREATER_EQUAL GREATER 
-  | '>' -> add_double_token lexer LESS_EQUAL LESS 
+  | '<' -> add_double_token lexer LESS_EQUAL LESS 
+  | '>' -> add_double_token lexer GREATER_EQUAL GREATER 
   | '/' -> add_comment lexer 
   | ' ' | '\r' | 't'  -> lexer
   | '\n' -> {lexer with line = lexer.line + 1}

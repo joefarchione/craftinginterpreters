@@ -2,11 +2,16 @@ open Core
 
 let matches tag tags = List.mem tag tags
 
-let consume (tokens: Token.t list) (tag: Token.tag) (message: string) = 
+let consume (tag: Token.tag) (message: string) (tokens: Token.t list)  = 
   match tokens with 
   | hd :: tl when (Token.equal_tag hd.tag tag) -> (hd, tl)
   | hd :: _ -> raise Lox_error.(ParseError {line=hd.line;lexeme=hd.lexeme;message=message;})
   | [] ->  raise Lox_error.(ParseError {line=(-1); lexeme="EOF";message=message})
+
+let consume_some_identifier  (tokens: Token.t list)  = 
+  match tokens with 
+  | hd :: tl when (Token.equal_tag hd.tag Token.IDENTIFIER) -> (Some hd, tl)
+  | _ -> None, tokens 
 
 let rec primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
   match tokens with 
@@ -20,9 +25,10 @@ let rec primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
     | Token.NUMBER -> (Expression.(Literal hd.literal), tl)
     | Token.LEFT_PAREN -> (
       let (exprs, rem_tokens) = expression tl in 
-      let (_, rem_tokens) = consume rem_tokens RIGHT_PAREN "Expect ')' after expression" in 
+      let (_, rem_tokens) = consume  RIGHT_PAREN "Expect ')' after expression" rem_tokens in 
       (Expression.(Grouping exprs), rem_tokens)
     )
+    | Token.THIS -> Expression.This (hd), tl
     | Token.IDENTIFIER -> Expression.(Variable hd), tl
     | Token.FUN -> call tokens
     | _ ->  
@@ -30,14 +36,21 @@ let rec primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
 
 
 and call (tokens: Token.t list): (Expression.t * Token.t list) =
-  let (expr, rem_tokens) = primary tokens in 
-    match rem_tokens with 
-    (*TODO should this be recurive over while loop pg 148, needed for methods*)
+  let rec call_or_get (expr: Expression.t) (tokens: Token.t list) = 
+    match tokens with 
     | hd :: tl when (Token.equal_tag hd.tag Token.LEFT_PAREN) -> 
       let (rem_tokens, arguments) = finish_call tl [] in 
-      let (paren, rem_tokens) = consume rem_tokens Token.RIGHT_PAREN "Expect ')' after arguments" in 
-      (Expression.Call (expr, paren, arguments), rem_tokens)
-    | _ -> (expr, rem_tokens) 
+      let (paren, rem_tokens) = consume Token.RIGHT_PAREN "Expect ')' after arguments" rem_tokens in 
+      let expr = Expression.Call (expr, paren, arguments) in 
+      call_or_get expr rem_tokens
+    | hd :: tl when (Token.equal_tag hd.tag Token.DOT) -> 
+      let (name, rem_tokens) = consume Token.IDENTIFIER "Expect property name after '." tl in 
+      let expr = Expression.Get (expr, name) in 
+      call_or_get expr rem_tokens
+    | _ -> (expr, tokens) in 
+
+  let (expr, rem_tokens) = primary tokens in 
+  call_or_get expr rem_tokens
 
 and finish_call (tokens: Token.t list) (arguments: Expression.t list) : Token.t list * Expression.t list = 
   match tokens with 
@@ -120,6 +133,10 @@ and assignment (tokens: Token.t list): (Expression.t * Token.t list) =
   | (Expression.Variable (v), hd::tl) when (Token.equal_tag hd.tag Token.EQUAL) -> 
     let (value, rem_tokens) = assignment tl in 
     (Expression.Assignment (v, value), rem_tokens)
+  | (Expression.Get (name, token), hd::tl) when (Token.equal_tag hd.tag Token.EQUAL) -> (
+    let (value, rem_tokens) = assignment tl in 
+    (Expression.Set (name, token, value), rem_tokens)
+  )
   | (_, _) -> (left, rem_tokens)
 
 and expression tokens = assignment tokens
@@ -141,6 +158,7 @@ and statement (tokens: Token.t list)  =
       match hd.tag with
       | Token.PRINT -> print_statement tl
       | Token.VAR -> var_declaration tl
+      | Token.CLASS -> class_declaration tl
       | Token.LEFT_BRACE -> block tl []
       | Token.IF -> if_statement tl
       | Token.FUN -> function_statement tl "function"
@@ -152,21 +170,21 @@ and statement (tokens: Token.t list)  =
 
 and print_statement (tokens: Token.t list) =
   let (value, rem_tokens) = expression tokens in
-  let (_, rem_tokens) = consume rem_tokens Token.SEMICOLON "Expect ';' after value" in 
+  let (_, rem_tokens) = consume  Token.SEMICOLON "Expect ';' after value" rem_tokens in 
   (Statement.Print value, rem_tokens)
 
 and expression_statement (tokens: Token.t list) =
   let (value, rem_tokens) = expression tokens in
-  let (_, rem_tokens) = consume rem_tokens Token.SEMICOLON "Expect ';' after value" in 
+  let (_, rem_tokens) = consume  Token.SEMICOLON "Expect ';' after value" rem_tokens in 
   (Statement.Expression value, rem_tokens)
 
 and var_declaration (tokens: Token.t list) = 
-  let (name, rem_tokens)  = consume tokens Token.IDENTIFIER "Expect variable name" in 
+  let (name, rem_tokens)  = consume  Token.IDENTIFIER "Expect variable name" tokens in 
   let (init, rem_tokens) = 
     match rem_tokens with 
     | hd :: tl when (Token.equal_tag hd.tag Token.EQUAL) -> expression tl |> (fun (i, r) -> ((Some i), r))
     | _ -> None, rem_tokens in 
-  let (_, rem_tokens)  = consume rem_tokens Token.SEMICOLON "Expect variable name" in 
+  let (_, rem_tokens)  = consume  Token.SEMICOLON "Expect variable name" rem_tokens in 
   (Statement.VarDeclaration {name = name; init=init; }, rem_tokens)
 
 and block (tokens: Token.t list) (stmts: Statement.t list) = 
@@ -176,7 +194,7 @@ and block (tokens: Token.t list) (stmts: Statement.t list) =
     block rem_tokens (stmt :: stmts)
   | hd :: tl when (Token.equal_tag hd.tag Token.RIGHT_BRACE) ->
     (Statement.Block (List.rev stmts), tl)
-    | hd :: _ -> Lox_error.parse_error_from_token hd "Expect '}' after block"
+    | hd :: _ -> raise Lox_error.(ParseError {line=hd.line; lexeme=hd.lexeme; message="Expect '}' after block"})
     | [] -> Lox_error.out_of_tokens () 
 
 and declaration (tokens: Token.t list) = 
@@ -184,12 +202,30 @@ and declaration (tokens: Token.t list) =
   | [] -> raise Lox_error.(RunTimeError ("declaration", "no tokens supplied"))
   | hd :: tl when Token.equal_tag hd.tag Token.VAR -> var_declaration tl
   | hd :: tl when Token.equal_tag hd.tag Token.FUN -> function_statement tl "function"
+  | hd :: tl when Token.equal_tag hd.tag Token.CLASS -> class_declaration tl 
   | _ -> statement tokens
 
+and class_declaration (tokens: Token.t list)  = 
+  let (name, rem_tokens) = consume  Token.IDENTIFIER "Expect class name" tokens in 
+  let (_, rem_tokens) = consume  Token.LEFT_BRACE "Expect '{' before class body" rem_tokens in 
+
+  let (methods, rem_tokens) = take_class_methods rem_tokens [] in 
+  (Statement.ClassDeclaration (name, methods), rem_tokens)
+
+and take_class_methods (tokens: Token.t list) (methods: Statement.t list) = 
+    match tokens with 
+    | hd :: _ when not (Token.equal_tag hd.tag Token.RIGHT_BRACE) -> 
+      let (stmt, rem_tokens) = (function_statement tokens "function") in 
+      take_class_methods rem_tokens (stmt :: methods)
+    | hd :: tl when (Token.equal_tag hd.tag Token.RIGHT_BRACE) -> (methods, tl)
+    | _ -> 
+      let message = "Expect '}' after class body." in 
+      raise Lox_error.(ParseError {line=(-1); lexeme="EOF";message=message}) 
+
 and if_statement (tokens: Token.t list) = 
-  let (_, rem_tokens) = consume tokens Token.LEFT_PAREN "Expect '(' after 'if'" in
+  let (_, rem_tokens) = consume  Token.LEFT_PAREN "Expect '(' after 'if'" tokens in
   let (condition, rem_tokens) = expression rem_tokens in 
-  let (_, rem_tokens) = consume rem_tokens Token.RIGHT_PAREN "Expect ')' after 'if'" in
+  let (_, rem_tokens) = consume  Token.RIGHT_PAREN "Expect ')' after 'if'" rem_tokens in
   let (then_branch, rem_tokens) = statement rem_tokens in 
 
   match rem_tokens with 
@@ -199,16 +235,16 @@ and if_statement (tokens: Token.t list) =
   | _ -> (Statement.If (condition, then_branch), rem_tokens)
 
 and while_statement (tokens: Token.t list) = 
-  let (_, rem_tokens) = consume tokens Token.LEFT_PAREN "Expect '(' after 'while'" in 
+  let (_, rem_tokens) = consume  Token.LEFT_PAREN "Expect '(' after 'while'" tokens in 
   let (condition, rem_tokens) = expression rem_tokens in 
-  let (_, rem_tokens) = consume rem_tokens Token.RIGHT_PAREN "Expect ')' after 'while'" in 
+  let (_, rem_tokens) = consume  Token.RIGHT_PAREN "Expect ')' after 'while'" rem_tokens in 
   let (body, rem_tokens) = statement rem_tokens in 
   (Statement.While (condition, body)), rem_tokens
 
 and for_statement (tokens: Token.t list): Statement.t * Token.t list = 
-  let (_, rem_tokens) = consume tokens Token.LEFT_PAREN "Expect '(' after 'for'" in 
+  let (_, rem_tokens) = consume  Token.LEFT_PAREN "Expect '(' after 'for'" tokens in 
 
-  let a_b_to_somea_b (a,b) = Some a, b in 
+  let a_b_to_somea_b (a,b) = (Some a, b) in 
 
   let (init, rem_tokens) = 
     match rem_tokens with 
@@ -220,47 +256,50 @@ and for_statement (tokens: Token.t list): Statement.t * Token.t list =
   let (condition, rem_tokens) = 
     match rem_tokens with 
     | hd :: _ when not (Token.equal_tag hd.tag Token.SEMICOLON) -> 
-      expression rem_tokens |> a_b_to_somea_b
-    | _ -> None, rem_tokens in
+      expression rem_tokens 
+    | _ -> (Expression.Literal (Value.LoxBool (true))), rem_tokens in
 
-  let (_, rem_tokens) = consume rem_tokens Token.SEMICOLON "Expect ';' after loop condition" in 
+  let (_, rem_tokens) = consume  Token.SEMICOLON "Expect ';' after loop condition" rem_tokens in 
 
   let (increment, rem_tokens) = 
     match rem_tokens with 
     | hd :: _ when not (Token.equal_tag hd.tag Token.RIGHT_PAREN) -> 
-      expression tokens|> a_b_to_somea_b
+      expression rem_tokens|> a_b_to_somea_b
     | _ -> None, rem_tokens in 
 
-  let (_, rem_tokens) = consume rem_tokens Token.RIGHT_PAREN "Expect ')' after for clauses" in 
+  let (_, rem_tokens) = consume  Token.RIGHT_PAREN "Expect ')' after for clauses" rem_tokens in 
 
   let (body, rem_tokens) = statement rem_tokens in 
-  (Statement.For (init, condition, increment, body)), rem_tokens
+
+  Statement.For (init, condition, increment, body), rem_tokens
+
 
 and function_statement (tokens: Token.t list) (kind: string): (Statement.t * Token.t list) =
   let message = (Printf.sprintf "Expect %s name") kind in 
-  let (name, rem_tokens) = consume tokens Token.IDENTIFIER message in 
+  let (name, rem_tokens) = consume Token.IDENTIFIER message tokens in 
   let message = (Printf.sprintf "Expect '(' after %s name") kind in 
-  let (_, rem_tokens) = consume rem_tokens Token.LEFT_PAREN message in 
+  let (_, rem_tokens) = consume Token.LEFT_PAREN message rem_tokens in 
 
   let rec collect_parameters (tokens: Token.t list) (parameters: Token.t list) = 
     match tokens with 
     | hd :: tl when (Token.equal_tag hd.tag Token.COMMA) -> 
         if List.length parameters >= 255 then Printf.printf "Can't have more than 255 parameters";
-        let (parameter, rem_tokens) = consume tl Token.IDENTIFIER message in 
+        let (parameter, rem_tokens) = consume Token.IDENTIFIER message tl in 
         collect_parameters rem_tokens (parameters @ [parameter])
     | _  -> (parameters, tokens) in 
 
   let (parameters, rem_tokens) = 
-    consume rem_tokens Token.IDENTIFIER message 
-    |> (fun (p, t) -> collect_parameters t [p]) in 
+    match consume_some_identifier rem_tokens with
+    | (Some (a), rem_tokens) -> collect_parameters rem_tokens [a] 
+    | (None, rem_tokens) -> [], rem_tokens in 
 
   let (_, rem_tokens) =
-    (Printf.sprintf "Expect ')' after parameters")
-    |> consume rem_tokens Token.RIGHT_PAREN   in 
+    let message = (Printf.sprintf "Expect ')' after parameters") in 
+    consume Token.RIGHT_PAREN message rem_tokens   in 
 
   let (_, rem_tokens) = 
-  (Printf.sprintf "Expect '{' after parameters declared") 
-  |> consume rem_tokens Token.LEFT_BRACE   in 
+    let message = Printf.sprintf "Expect '{' after parameters declared" in 
+    consume Token.LEFT_BRACE message rem_tokens  in 
 
   let (body, rem_tokens) = block rem_tokens [] in 
   let body = match body with | Statement.Block (b) -> b | _ -> [body;] in 
@@ -274,7 +313,7 @@ and return_statement (tokens: Token.t list) : (Statement.t * Token.t list) =
     | _ -> expression tokens |> (fun (e, t) -> Some e, t) in 
 
   let message = (Printf.sprintf "Expect ';' after return value") in 
-  let (_, rem_tokens) = consume rem_tokens Token.SEMICOLON message  in 
+  let (_, rem_tokens) = consume Token.SEMICOLON message rem_tokens  in 
   Statement.Return expr, rem_tokens
 
 
@@ -298,15 +337,3 @@ let rec synchronize (tokens: Token.t list) =
 let parse tokens = 
   let statements, _ = statements tokens [] in
   List.rev statements
-
-(* let%test "function_call" = 
-  ignore (
-    let text = "
-    print 1 + 2 + 3;
-    " in 
-    let tokens = Lexer.scan_text text in 
-    Token.print_tokens tokens;
-    let stmts = parse tokens in
-    Statement.print_statements stmts;
-  );
-  true  *)
