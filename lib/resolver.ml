@@ -102,6 +102,7 @@ type function_type =
 
 type class_type = 
 | Class
+| Subclass
 [@@deriving show {with_path = false}]
 
 type t = {
@@ -183,14 +184,31 @@ and resolve_stmt (stmt: Statement.t) (t:t) =
     declare name.lexeme t
     |> define name.lexeme
     |> resolve_function params body Function
-  | ClassDeclaration (name, methods) -> (
+  | ClassDeclaration (name, superclass, methods) -> (
       let enclosing_class = t.current_class in 
       let t = 
         {t with current_class = Some Class}
         |> declare name.lexeme 
-        |> define name.lexeme
+        |> define name.lexeme in 
+      let t = match superclass with 
+        | Some (s) -> 
+          let circular_inheritance = 
+            match s with 
+            | Variable (v) -> String.equal v.lexeme name.lexeme
+            | _ -> false in 
+          if circular_inheritance then 
+            failwith "A class cannot inherit from itself."
+          else
+            {t with current_class = Some Subclass} 
+            |> resolve_expr s 
+            |> begin_scope
+            |> define "super"
+        | None -> t
+      in
+      let t  = t
         |> begin_scope 
-        |> define "this"  in 
+        |> define "this"
+      in
       let t  = 
         List.fold methods ~init:t ~f:(fun acc a -> 
           match a with 
@@ -203,7 +221,11 @@ and resolve_stmt (stmt: Statement.t) (t:t) =
             resolve_function params body declaration acc
           | _ -> failwith "only functions defined here"
       ) in 
-      let t = end_scope t in
+      let t = 
+      match superclass with 
+      | Some (_) -> t |> end_scope |> end_scope
+      | None -> end_scope t
+      in 
       {t with current_class = enclosing_class}
     )
   | If (condition, thenbranch) -> 
@@ -280,10 +302,19 @@ and resolve_stmt (stmt: Statement.t) (t:t) =
       resolve_expr value t
       |> resolve_expr name
     )
-    | This (token) -> 
+    | This (token) -> (
       match t.current_class  with
       | None -> failwith "can't use this outside of a class"
       | _ -> {t with locals = resolve_local expr token t}
+    )
+    | Super (keyword, _) -> (
+        match t.current_class with
+        | None -> failwith "cant use super outside a class"
+        | Some(Class) -> failwith "cant use super in a class with no superclass"
+        | _ -> {t with locals = resolve_local expr keyword t}
+        
+    )
+
   )
 
 and resolve_expr (expr: Expression.t ) (t:t) =

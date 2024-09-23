@@ -31,6 +31,11 @@ let rec primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
     | Token.THIS -> Expression.This (hd), tl
     | Token.IDENTIFIER -> Expression.(Variable hd), tl
     | Token.FUN -> call tokens
+    | Token.SUPER -> (
+      let (_, rem_tokens) = consume  DOT "Expect '.' after super" tl in 
+      let (loxmethod, rem_tokens) = consume  IDENTIFIER "Expect superclass method name" rem_tokens in 
+      (Expression.Super (hd, loxmethod), rem_tokens)
+    )
     | _ ->  
       raise (Lox_error.(ParseError {line=hd.line; lexeme=hd.lexeme; message="Incorrect tag for primary expression"}))
 
@@ -207,10 +212,18 @@ and declaration (tokens: Token.t list) =
 
 and class_declaration (tokens: Token.t list)  = 
   let (name, rem_tokens) = consume  Token.IDENTIFIER "Expect class name" tokens in 
+
+  let (superclass, rem_tokens) = 
+    match rem_tokens with 
+    | hd :: tl when Token.equal_tag hd.tag Token.LESS -> 
+      consume Token.IDENTIFIER "Expect superclass name" tl
+      |> (fun (a,b) -> (Some (Expression.Variable(a)), b))
+    | _ -> None, rem_tokens in 
+
   let (_, rem_tokens) = consume  Token.LEFT_BRACE "Expect '{' before class body" rem_tokens in 
 
   let (methods, rem_tokens) = take_class_methods rem_tokens [] in 
-  (Statement.ClassDeclaration (name, methods), rem_tokens)
+  (Statement.ClassDeclaration (name, superclass, methods), rem_tokens)
 
 and take_class_methods (tokens: Token.t list) (methods: Statement.t list) = 
     match tokens with 

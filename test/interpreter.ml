@@ -73,7 +73,8 @@ let%expect_test "class_declaration" =
   "
   |> Interpreter.interpret;
   [%expect {| Crunch crunch crunch! |}]
-;; 
+;;
+
 
 let%expect_test "class_function_as_property" = 
    "
@@ -88,6 +89,41 @@ let%expect_test "class_function_as_property" =
    box.function(\"argument\");
   "
   |> Interpreter.interpret;
-  [%expect {| called function with argument |}]
-;;
+  [%expect {| called function with argument |}];;
 
+
+let%expect_test "inheritance" = 
+   "
+   class Doughnut {
+   cook() {
+      print \"Fry until golden brown.\";
+   }
+   }
+
+   class BostonCream < Doughnut {}
+
+   BostonCream().cook();
+  "
+  |> Interpreter.interpret;
+  [%expect {| Fry until golden brown. |}];; 
+
+
+let%expect_test "super" = 
+   "
+   class Doughnut {
+   cook() {
+      print \"Fry until golden brown.\";
+   }
+   }
+
+   class BostonCream < Doughnut {
+   cook() {
+      super.cook();
+      print \"Pipe full of custard and coat with chocolate.\";
+   }
+   }
+
+   BostonCream().cook();
+   "
+   |> Interpreter.interpret;
+  [%expect {| Fry until golden brown.Pipe full of custard and coat with chocolate. |}];;
