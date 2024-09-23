@@ -20,5 +20,10 @@ foo.bar(1, 2);
 // expect: 2
 "
 |> Interpreter.interpret;
+  [%expect {|
+    bar
+    1
+    2
+    |}]
 ;;
     

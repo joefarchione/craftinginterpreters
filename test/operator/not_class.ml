@@ -8,5 +8,9 @@ print !Bar;      // expect: false
 print !Bar();    // expect: false
 "
 |> Interpreter.interpret;
+  [%expect {|
+    false
+    false
+    |}]
 ;;
     

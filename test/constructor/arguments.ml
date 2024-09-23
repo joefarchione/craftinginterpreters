@@ -16,5 +16,9 @@ print foo.a; // expect: 1
 print foo.b; // expect: 2
 "
 |> Interpreter.interpret;
+  [%expect {|
+    init
+    runtime error: this
+    |}]
 ;;
     

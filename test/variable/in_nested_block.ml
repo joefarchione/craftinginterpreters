@@ -10,5 +10,6 @@ let%expect_test "in_nested_block" =
   }
 }"
 |> Interpreter.interpret;
+  [%expect {| outer |}]
 ;;
     

@@ -13,5 +13,9 @@ var a = \"outer\";
 print a; // expect: outer
 "
 |> Interpreter.interpret;
+  [%expect {|
+    inner
+    outer
+    |}]
 ;;
     

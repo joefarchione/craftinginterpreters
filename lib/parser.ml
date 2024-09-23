@@ -15,7 +15,7 @@ let consume_some_identifier  (tokens: Token.t list)  =
 
 let rec primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
   match tokens with 
-  | [] -> Lox_error.out_of_tokens ()
+  | []  -> Lox_error.out_of_tokens ()
   | hd :: tl -> 
     match hd.tag with 
     | Token.FALSE 
@@ -37,7 +37,7 @@ let rec primary (tokens:Token.t list) : (Expression.t * Token.t list)  =
       (Expression.Super (hd, loxmethod), rem_tokens)
     )
     | _ ->  
-      raise (Lox_error.(ParseError {line=hd.line; lexeme=hd.lexeme; message="Incorrect tag for primary expression"}))
+      raise (Lox_error.(ParseError {line=hd.line; lexeme=hd.lexeme; message="Expected expression"}))
 
 
 and call (tokens: Token.t list): (Expression.t * Token.t list) =
@@ -64,10 +64,16 @@ and finish_call (tokens: Token.t list) (arguments: Expression.t list) : Token.t 
     let (argument, rem_tokens) = expression tokens in 
     match rem_tokens with 
     | hd :: tl when Token.equal_tag hd.tag Token.COMMA -> 
-      if (List.length arguments) >= 255 then Lox_error.too_many_arguments ();
+      if (List.length arguments) >= 255 then (
+        raise Lox_error.(TooManyArgumentsSupplied (Printf.sprintf "Can't have more than 255 arguments"))
+      )
+      else
       finish_call tl (argument :: arguments)
     | _ -> 
-      if (List.length arguments) >= 255 then Lox_error.too_many_arguments ();
+      if (List.length arguments) >= 255 then (
+        raise Lox_error.(TooManyArgumentsSupplied (Printf.sprintf "Can't have more than 255 arguments"))
+      )
+      else
       finish_call rem_tokens (argument:: arguments)
 
 and unary (tokens: Token.t list): (Expression.t * Token.t list) =
@@ -141,6 +147,9 @@ and assignment (tokens: Token.t list): (Expression.t * Token.t list) =
   | (Expression.Get (name, token), hd::tl) when (Token.equal_tag hd.tag Token.EQUAL) -> (
     let (value, rem_tokens) = assignment tl in 
     (Expression.Set (name, token, value), rem_tokens)
+  )
+  | (_, hd::_) when (Token.equal_tag hd.tag Token.EQUAL) -> (
+      raise Lox_error.(RunTimeError (Printf.sprintf "Invalid assignment target '%s'" (Expression.show left), ""))
   )
   | (_, _) -> (left, rem_tokens)
 
@@ -239,11 +248,11 @@ and if_statement (tokens: Token.t list) =
   let (_, rem_tokens) = consume  Token.LEFT_PAREN "Expect '(' after 'if'" tokens in
   let (condition, rem_tokens) = expression rem_tokens in 
   let (_, rem_tokens) = consume  Token.RIGHT_PAREN "Expect ')' after 'if'" rem_tokens in
-  let (then_branch, rem_tokens) = statement rem_tokens in 
+  let (then_branch, rem_tokens) = expression rem_tokens in 
 
   match rem_tokens with 
   | hd::tl when (Token.equal_tag hd.tag Token.ELSE) -> 
-    let (else_branch, rem_tokens) = statement tl in 
+    let (else_branch, rem_tokens) = expression tl in 
     (Statement.IfElse (condition, then_branch, else_branch), rem_tokens)
   | _ -> (Statement.If (condition, then_branch), rem_tokens)
 
@@ -251,7 +260,7 @@ and while_statement (tokens: Token.t list) =
   let (_, rem_tokens) = consume  Token.LEFT_PAREN "Expect '(' after 'while'" tokens in 
   let (condition, rem_tokens) = expression rem_tokens in 
   let (_, rem_tokens) = consume  Token.RIGHT_PAREN "Expect ')' after 'while'" rem_tokens in 
-  let (body, rem_tokens) = statement rem_tokens in 
+  let (body, rem_tokens) = expression rem_tokens in 
   (Statement.While (condition, body)), rem_tokens
 
 and for_statement (tokens: Token.t list): Statement.t * Token.t list = 

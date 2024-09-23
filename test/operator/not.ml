@@ -18,5 +18,15 @@ fun foo() {}
 print !foo;      // expect: false
 "
 |> Interpreter.interpret;
+  [%expect {|
+    false
+    true
+    true
+    false
+    false
+    true
+    false
+    false
+    |}]
 ;;
     

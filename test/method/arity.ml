@@ -27,5 +27,6 @@ print foo.method7(1, 2, 3, 4, 5, 6, 7); // expect: 28
 print foo.method8(1, 2, 3, 4, 5, 6, 7, 8); // expect: 36
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: return |}]
 ;;
     

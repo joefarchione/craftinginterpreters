@@ -11,5 +11,6 @@ fun f() {
 print f(); // expect: nil
 "
 |> Interpreter.interpret;
+  [%expect {| message='Expect ';' after return value' at line 4 for lexeme='print' |}]
 ;;
     

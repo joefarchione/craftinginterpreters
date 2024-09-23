@@ -8,5 +8,6 @@ fun foo() {}
 foo.bar = \"value\"; // expect runtime error: Only instances have fields.
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: bar |}]
 ;;
     

@@ -106,6 +106,8 @@ module Value = struct
     | LoxInstance i -> Printf.sprintf "Instance of %s" i.klass.name
     | LoxMethod f -> Printf.sprintf "<method %s>" f.name
 
+  let print v = (Printf.printf "%s") (to_string v)
+
   let float_of t = 
     match t with
     | LoxNumber (x) -> x 
@@ -115,13 +117,12 @@ module Value = struct
     match t with 
      LoxString (x) -> x | _ -> raise Lox_error.(RunTimeError ("Not a string", (to_string t)))
 
+  let is_truthy value = bool_of value
   let is_equal a b = 
     match (a, b)  with 
     | (LoxNil, LoxNil) -> true
     | (LoxNil, _) -> false
-    | (a,b) -> equal a b
-
-  let is_truthy value = bool_of value
+    | (a,b) -> (compare a b) = 0
 
   let find_method (name:string) (instance: lox_instance) : t option = 
     match Map.find instance.klass.methods name with 
@@ -203,7 +204,6 @@ module Value = struct
     let fields = ClassFields.set name value instance.fields in
     {instance with fields = fields}
 
-  let print v = (Printf.printf "%s") (to_string v);
 
 end
 include Value

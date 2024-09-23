@@ -26,5 +26,6 @@ fun foo() {
 foo();
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: foo |}]
 ;;
     

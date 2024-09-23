@@ -39,6 +39,7 @@ type tag =
   | TRUE
   | VAR
   | WHILE
+  | EOF
   [@@deriving  eq, compare, sexp, show { with_path = false }]
 
 

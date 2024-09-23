@@ -12,5 +12,12 @@ print a;
 // expect: 3
 "
 |> Interpreter.interpret;
+  [%expect {|
+    1
+    2
+    3
+    |}];;
+
+
 ;;
     

@@ -10,5 +10,6 @@ var foo = Foo();
 print foo.method; // expect: <fn method>
 "
 |> Interpreter.interpret;
+  [%expect {| <method method> |}]
 ;;
     

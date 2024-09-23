@@ -28,5 +28,25 @@ print false != \"false\"; // expect: true
 print false != \"\";      // expect: true
 "
 |> Interpreter.interpret;
+  [%expect {|
+    true
+    false
+    false
+    true
+    false
+    false
+    false
+    false
+    false
+    false
+    true
+    true
+    false
+    true
+    true
+    true
+    true
+    true
+    |}]
 ;;
     

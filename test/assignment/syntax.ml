@@ -10,6 +10,9 @@ print a; // expect: var
 print c; // expect: var
 "
 |> Interpreter.interpret;
-  [%expect {| varvar |}]
+  [%expect {|
+    var
+    var
+    |}]
 ;;
     

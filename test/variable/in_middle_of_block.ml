@@ -15,5 +15,11 @@ let%expect_test "in_middle_of_block" =
 }
 "
 |> Interpreter.interpret;
+  [%expect {|
+    a
+    a b
+    a c
+    a b d
+    |}]
 ;;
     

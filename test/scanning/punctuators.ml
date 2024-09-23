@@ -25,6 +25,44 @@ let%expect_test "punctuators" =
 // expect: DOT . null
 // expect: EOF  null
 "
-|> Interpreter.interpret;
+|> Lexer.scan_text
+|> Token.print_tokens;
+  [%expect {|
+    { tag = LEFT_PAREN; lexeme = "("; literal = LoxNil; line = 2 }
+
+    { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 2 }
+
+    { tag = LEFT_BRACE; lexeme = "{"; literal = LoxNil; line = 2 }
+
+    { tag = RIGHT_BRACE; lexeme = "}"; literal = LoxNil; line = 2 }
+
+    { tag = SEMICOLON; lexeme = ";"; literal = LoxNil; line = 2 }
+
+    { tag = COMMA; lexeme = ","; literal = LoxNil; line = 2 }
+
+    { tag = PLUS; lexeme = "+"; literal = LoxNil; line = 2 }
+
+    { tag = MINUS; lexeme = "-"; literal = LoxNil; line = 2 }
+
+    { tag = STAR; lexeme = "*"; literal = LoxNil; line = 2 }
+
+    { tag = BANG_EQUAL; lexeme = "!="; literal = LoxNil; line = 2 }
+
+    { tag = EQUAL_EQUAL; lexeme = "=="; literal = LoxNil; line = 2 }
+
+    { tag = LESS_EQUAL; lexeme = "<="; literal = LoxNil; line = 2 }
+
+    { tag = GREATER_EQUAL; lexeme = ">="; literal = LoxNil; line = 2 }
+
+    { tag = BANG_EQUAL; lexeme = "!="; literal = LoxNil; line = 2 }
+
+    { tag = LESS; lexeme = "<"; literal = LoxNil; line = 2 }
+
+    { tag = GREATER; lexeme = ">"; literal = LoxNil; line = 2 }
+
+    { tag = SLASH; lexeme = "/"; literal = LoxNil; line = 2 }
+
+    { tag = DOT; lexeme = "."; literal = LoxNil; line = 2 }
+    |}]
 ;;
     

@@ -7,5 +7,6 @@ let%expect_test "missing_argument" =
 print;
 "
 |> Interpreter.interpret;
+  [%expect {| message='Expected expression' at line 3 for lexeme=';' |}]
 ;;
     

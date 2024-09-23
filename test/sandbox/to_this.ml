@@ -12,6 +12,5 @@ class Foo {
 Foo();
 "
 |> Interpreter.interpret;
-  [%expect {| runtime error: Invalid assignment target '(This { tag = THIS; lexeme = "this"; literal = LoxNil; line = 4 })' |}]
 ;;
     

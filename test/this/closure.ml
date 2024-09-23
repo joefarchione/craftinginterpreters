@@ -18,5 +18,6 @@ var closure = Foo().getClosure();
 print closure(); // expect: Foo
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: return |}]
 ;;
     

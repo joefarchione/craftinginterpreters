@@ -24,5 +24,14 @@ foo2.fn(1);
 // expect: 1
 "
 |> Interpreter.interpret;
+  [%expect {|
+    invalid expression (Call (
+       (Get (
+          (Variable
+             { tag = IDENTIFIER; lexeme = "foo2"; literal = LoxNil; line = 18 }),
+          { tag = IDENTIFIER; lexeme = "fn"; literal = LoxNil; line = 18 })),
+       { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 18 },
+       [(Literal (LoxNumber 1.))]))
+    |}]
 ;;
     

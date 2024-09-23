@@ -9,5 +9,6 @@ let%expect_test "local_inherit_self" =
 // [c line 5] Error at end: Expect '}' after block.
 "
 |> Interpreter.interpret;
+  [%expect {| Resover error : Foo A class cannot inherit from itself. |}]
 ;;
     

@@ -15,5 +15,9 @@ class Foo {
 print Foo(); // expect: Foo instance
 "
 |> Interpreter.interpret;
+  [%expect {|
+    bar
+    Instance of Foo
+    |}]
 ;;
     

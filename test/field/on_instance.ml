@@ -14,5 +14,11 @@ print foo.bar; // expect: bar value
 print foo.baz; // expect: baz value
 "
 |> Interpreter.interpret;
+  [%expect {|
+    Instance of Foo
+    Instance of Foo
+    bar value
+    baz value
+    |}]
 ;;
     

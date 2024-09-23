@@ -18,5 +18,15 @@ print Foo == 123;   // expect: false
 print Foo == true;  // expect: false
 "
 |> Interpreter.interpret;
+  [%expect {|
+    true
+    false
+    false
+    true
+    false
+    false
+    false
+    false
+    |}]
 ;;
     

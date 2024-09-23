@@ -15,5 +15,6 @@ var foo = Foo(); // expect: init
 print foo; // expect: Foo instance
 "
 |> Interpreter.interpret;
+  [%expect {| message='Expect ';' after return value' at line 6 for lexeme='print' |}]
 ;;
     

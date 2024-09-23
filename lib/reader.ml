@@ -15,8 +15,8 @@ module Reader = struct
     with 
       | Lox_error.ParseError (e) -> Printf.printf "%d %s %s" e.line e.lexeme e.message
       | Expression.EvalError (e) -> Printf.printf "Invalid expression %s" (Expression.show e)
-      | Lox_error.RunTimeError (a, b) ->  Printf.printf "Runtime error : %s %s" a b
-      | Resolver.ResolverError (name, message) ->  Printf.printf "Resover error : %s %s" name message
+    | Lox_error.RunTimeError (a, _) ->  Printf.printf "runtime error: %s" a
+    | Resolver.ResolverError (msg) ->  Printf.printf "resover error: %s"  msg
       | Lox_error.TooFewArgumentsSupplied (e) -> Printf.printf "%s" e
 
 end

@@ -12,5 +12,6 @@ if (false) {} else {}
 print \"ok\"; // expect: ok
 "
 |> Interpreter.interpret;
+  [%expect {| ok |}]
 ;;
     

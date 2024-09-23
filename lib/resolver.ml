@@ -121,7 +121,7 @@ let create () = {
   current_class = None;
 }
 
-exception ResolverError of string * string
+exception ResolverError of  string
 
 let pop  = function | [] -> (None, []) | [x] -> (Some x, []) | hd::tl -> (Some hd, tl)
 let begin_scope (t: t) = {t with scopes = Scope.empty :: t.scopes}
@@ -141,7 +141,7 @@ let declare  (name : string) (t:t) =
   | [] -> t
   | hd :: tl -> 
     if Scope.contains name hd then 
-      raise (ResolverError (name, "Already a variable in this scope with this name"))
+      raise (ResolverError (Printf.sprintf "Already a variable in this scope with name '%s'" name))
     else
       let hd = Scope.declare hd name in 
       {t with scopes = hd :: tl}
@@ -197,7 +197,7 @@ and resolve_stmt (stmt: Statement.t) (t:t) =
             | Variable (v) -> String.equal v.lexeme name.lexeme
             | _ -> false in 
           if circular_inheritance then 
-            raise (ResolverError (name.lexeme, "A class cannot inherit from itself."))
+            raise (ResolverError (Printf.sprintf "A class cannot inherit from itself '%s'" name.lexeme))
           else
             {t with current_class = Some Subclass} 
             |> resolve_expr s 
@@ -230,11 +230,11 @@ and resolve_stmt (stmt: Statement.t) (t:t) =
     )
   | If (condition, thenbranch) -> 
     resolve_expr condition t
-    |> resolve_stmt thenbranch
+    |> resolve_expr thenbranch
   | IfElse (condition, thenbranch, elsebranch) -> 
     resolve_expr condition t
-    |> resolve_stmt thenbranch
-    |> resolve_stmt elsebranch
+    |> resolve_expr thenbranch
+    |> resolve_expr elsebranch
   | Print (expr) -> 
     resolve_expr expr t
   | Return (expr_opt) -> (
@@ -248,7 +248,7 @@ and resolve_stmt (stmt: Statement.t) (t:t) =
   )
   | While (condition, body) -> (
     resolve_expr condition t
-    |> resolve_stmt body
+    |> resolve_expr body
   )
   | For (init, condition, increment, body) -> (
       let t = 
@@ -304,7 +304,7 @@ and resolve_stmt (stmt: Statement.t) (t:t) =
     )
     | This (token) -> (
       match t.current_class  with
-      | None -> failwith "can't use this outside of a class"
+      | None -> raise (ResolverError ("'this' can't use this outside of a class"))
       | _ -> {t with locals = resolve_local expr token t}
     )
     | Super (keyword, _) -> (

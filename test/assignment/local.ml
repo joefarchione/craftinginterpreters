@@ -15,6 +15,9 @@ let%expect_test "local" =
 }
 "
 |> Interpreter.interpret;
-  [%expect {| beforeafterargarg |}]
+  [%expect {|
+    before
+    runtime error: Undefined variable 'a'.
+    |}]
 ;;
     

@@ -7,5 +7,6 @@ var a;
 print a; // expect: nil
 "
 |> Interpreter.interpret;
+  [%expect {| Nil |}]
 ;;
     

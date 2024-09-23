@@ -30,5 +30,27 @@ print 0 >= -0; // expect: true
 print -0 >= 0; // expect: true
 "
 |> Interpreter.interpret;
+  [%expect {|
+    true
+    false
+    false
+    true
+    true
+    false
+    false
+    false
+    true
+    false
+    true
+    true
+    false
+    false
+    false
+    false
+    true
+    true
+    true
+    true
+    |}]
 ;;
     

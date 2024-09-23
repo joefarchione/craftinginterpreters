@@ -13,5 +13,12 @@ print 0 or \"ok\"; // expect: 0
 print \"s\" or \"ok\"; // expect: s
 "
 |> Interpreter.interpret;
+  [%expect {|
+    ok
+    ok
+    true
+    0
+    s
+    |}]
 ;;
     

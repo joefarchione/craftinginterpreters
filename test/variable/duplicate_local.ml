@@ -9,5 +9,6 @@ let%expect_test "duplicate_local" =
 }
 "
 |> Interpreter.interpret;
+  [%expect {| resover error: Already a variable in this scope with name 'a' |}]
 ;;
     

@@ -11,5 +11,6 @@ class Foo {
 print Foo().bar().baz(); // expect: baz
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: return |}]
 ;;
     

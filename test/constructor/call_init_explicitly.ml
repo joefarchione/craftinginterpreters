@@ -20,5 +20,9 @@ print foo2; // expect: Foo instance
 print foo.field; // expect: init
 "
 |> Interpreter.interpret;
+  [%expect {|
+    Foo.init(one)
+    runtime error: this
+    |}]
 ;;
     

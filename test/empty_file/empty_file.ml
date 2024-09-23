@@ -14,5 +14,6 @@ print f();
 // expect: i
 "
 |> Interpreter.interpret;
+  [%expect {| i |}]
 ;;
     

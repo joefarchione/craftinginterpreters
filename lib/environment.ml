@@ -16,13 +16,13 @@ module ValuesMap = struct
       if contains name t then
         (Map.update t name ~f:(fun _-> value))
       else 
-        raise Lox_error.(RunTimeError (name, "Undefined variable"))
+        raise Lox_error.(RunTimeError (Printf.sprintf "Undefined variable %s" name, ""))
 
 
   let get (name: string) (t:t) = 
     match Map.find t name with 
       | Some v -> v
-      | None -> raise Lox_error.(RunTimeError (name, "Undefined variable"))
+      | None -> raise Lox_error.(RunTimeError (Printf.sprintf "Undefined variable %s" name, ""))
     
 end 
 
@@ -39,7 +39,7 @@ let pop (t:t) =
 
 let rec get (name: string) (t:t) : Value.t = 
   match t with 
-  | [] -> raise Lox_error.(RunTimeError (name, "Empty enviroment"))
+  | [] -> raise Lox_error.(RunTimeError (Printf.sprintf "Undefined variable %s" name, ""))
   | hd :: tl -> 
     if ValuesMap.contains name hd then
       ValuesMap.get name hd
@@ -56,7 +56,7 @@ let define token value (t:t) =
 let assign (name: string) (value:Value.t) (t:t) : t = 
   let rec assign_ (name:string) value (t:t) (t_out:t) : t = 
     match t with 
-    | [] -> raise Lox_error.(RunTimeError (name, "Undefined variable"))
+    | [] -> raise Lox_error.(RunTimeError (Printf.sprintf "Undefined variable %s" name, ""))
     | hd :: tl -> 
       if ValuesMap.contains name hd then
         t_out @ (ValuesMap.assign name value hd :: tl)
@@ -74,7 +74,7 @@ let get_global (t:t) : ValuesMap.t =
 let ancestor (distance:int) (t:t) = 
   match List.nth t distance with 
   | Some(l) -> l
-  | None -> raise Lox_error.(RunTimeError (Printf.sprintf "%d" distance, "Undefined environment"))
+  | None -> raise Lox_error.(RunTimeError (Printf.sprintf "Undefined environment at %d" distance, ""))
 
 let get_at distance token t = ancestor distance t |> ValuesMap.get token
 
@@ -83,6 +83,5 @@ let assign_at (distance:int) (name:string) (value: Value.t) (t:t) =
     if idx = distance then 
         (ValuesMap.assign name value env)
     else 
-      env
-  )
+      raise Lox_error.(RunTimeError (Printf.sprintf "Undefined variable '%s'." name, name)))
   

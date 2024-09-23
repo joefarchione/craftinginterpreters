@@ -12,5 +12,6 @@ class Foo {
 print Foo().returnSelf(); // expect: Foo
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: return |}]
 ;;
     

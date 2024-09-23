@@ -8,5 +8,6 @@ let%expect_test "undefined_local" =
 }
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: Undefined variable notDefined |}]
 ;;
     

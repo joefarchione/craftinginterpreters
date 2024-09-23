@@ -13,5 +13,12 @@ print 0 and \"ok\"; // expect: ok
 print \"\" and \"ok\"; // expect: ok
 "
 |> Interpreter.interpret;
+  [%expect {|
+    false
+    Nil
+    ok
+    ok
+    ok
+    |}]
 ;;
     

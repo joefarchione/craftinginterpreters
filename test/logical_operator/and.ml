@@ -24,5 +24,14 @@ print a; // expect: true
 print b; // expect: false
 "
 |> Interpreter.interpret;
+  [%expect {|
+    false
+    1
+    false
+    true
+    3
+    true
+    false
+    |}]
 ;;
     

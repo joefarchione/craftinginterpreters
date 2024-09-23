@@ -13,5 +13,9 @@ let%expect_test "shadow_local" =
 }
 "
 |> Interpreter.interpret;
+  [%expect {|
+    shadow
+    local
+    |}]
 ;;
     

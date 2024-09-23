@@ -10,5 +10,6 @@ fun f() {
 print f(); // expect: ok
 "
 |> Interpreter.interpret;
+  [%expect {| message='Expected expression' at line 3 for lexeme=';' |}]
 ;;
     

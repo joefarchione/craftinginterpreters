@@ -13,5 +13,6 @@ class Foo {
 print Foo().method(); // expect: ok
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: return |}]
 ;;
     

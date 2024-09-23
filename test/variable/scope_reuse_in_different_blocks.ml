@@ -14,5 +14,9 @@ let%expect_test "scope_reuse_in_different_blocks" =
 }
 "
 |> Interpreter.interpret;
+  [%expect {|
+    first
+    second
+    |}]
 ;;
     

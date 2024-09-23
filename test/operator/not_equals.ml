@@ -19,5 +19,17 @@ print false != 0; // expect: true
 print 0 != \"0\"; // expect: true
 "
 |> Interpreter.interpret;
+  [%expect {|
+    false
+    false
+    true
+    false
+    true
+    false
+    true
+    true
+    true
+    true
+    |}]
 ;;
     

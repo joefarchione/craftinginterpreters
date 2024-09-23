@@ -14,6 +14,10 @@ print b; // expect: c
 print c; // expect: c
 "
 |> Interpreter.interpret;
-  [%expect {| ccc |}]
+  [%expect {|
+    c
+    c
+    c
+    |}]
 ;;
     

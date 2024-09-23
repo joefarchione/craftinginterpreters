@@ -12,5 +12,9 @@ let%expect_test "shadow_and_local" =
   }
 }"
 |> Interpreter.interpret;
+  [%expect {|
+    outer
+    inner
+    |}]
 ;;
     

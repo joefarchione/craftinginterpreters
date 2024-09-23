@@ -35,13 +35,12 @@ let add_token lexer tag =
 
 let add_double_token lexer double_token single_token = 
   match lexer |> advance_lexer |> get_char with 
-  | None -> add_token lexer single_token
+  | None -> 
+    add_token lexer single_token
   | Some c ->
-    let lexer = advance_lexer lexer  in 
     if not (Char.equal c '=')
     then add_token (lexer) single_token
     else add_token (advance_lexer lexer) double_token
-
 
 let peek_n n lexer = 
   if (lexer.current+n-1) >= (String.length lexer.source)
@@ -77,7 +76,7 @@ let rec add_string lexer =
       raise Lox_error.(ParseError {line = lexer.line; lexeme = "EOF" ; message = message;})
   else lexer |> advance_lexer |> add_string
 
-let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
+let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' | '_' -> true | _ -> false
 let is_digit = function '0' .. '9' -> true | _ -> false
 let is_alphanumeric c = is_alpha c || is_digit c
 
@@ -103,8 +102,14 @@ let rec identifier lexer =
     let token_type =
       match Token.get_keyword text with
       | None -> Token.IDENTIFIER
-      | Some t -> t
-    in add_token lexer token_type
+      | Some t -> t in 
+    let literal = (
+      match token_type with
+      | Token.TRUE -> Value.LoxBool(true)
+      | Token.FALSE -> Value.LoxBool(false)
+      | _ -> Value.LoxNil 
+    ) in 
+    add_token_with_literal lexer token_type literal
   )
   else lexer |> advance_lexer |> identifier
 
@@ -130,7 +135,7 @@ let scan_token lexer =
   | '<' -> add_double_token lexer LESS_EQUAL LESS 
   | '>' -> add_double_token lexer GREATER_EQUAL GREATER 
   | '/' -> add_comment lexer 
-  | ' ' | '\r' | 't'  -> lexer
+  | ' ' | '\r' | '\t'  -> lexer
   | '\n' -> {lexer with line = lexer.line + 1}
   | '"' -> add_string lexer
   | c when is_digit c -> number lexer
@@ -140,9 +145,6 @@ let scan_token lexer =
 
 let rec scan_tokens lexer = 
   if (lexer |> is_eof) then (
-    (* let token =
-      Token.{ tag = Token.EOF; lexeme = ""; literal = Value.LoxNil; line = lexer.line }
-    in *)
     List.rev lexer.tokens
   )
   else

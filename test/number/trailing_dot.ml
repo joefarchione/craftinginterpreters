@@ -7,5 +7,6 @@ let%expect_test "trailing_dot" =
 123.;
 "
 |> Interpreter.interpret;
+  [%expect {| |}]
 ;;
     

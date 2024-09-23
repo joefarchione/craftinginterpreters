@@ -16,6 +16,16 @@ end
 // expect: IDENTIFIER end null
 // expect: EOF  null
 "
-|> Interpreter.interpret;
+|> Lexer.scan_text
+|> Token.print_tokens;
+  [%expect {|
+    { tag = IDENTIFIER; lexeme = "space"; literal = LoxNil; line = 2 }
+
+    { tag = IDENTIFIER; lexeme = "tabs"; literal = LoxNil; line = 2 }
+
+    { tag = IDENTIFIER; lexeme = "newlines"; literal = LoxNil; line = 2 }
+
+    { tag = IDENTIFIER; lexeme = "end"; literal = LoxNil; line = 7 }
+    |}]
 ;;
     

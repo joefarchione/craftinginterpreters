@@ -7,5 +7,6 @@ let%expect_test "use_false_as_var" =
 var false = \"value\";
 "
 |> Interpreter.interpret;
+  [%expect {| message='Expect variable name' at line 3 for lexeme='false' |}]
 ;;
     

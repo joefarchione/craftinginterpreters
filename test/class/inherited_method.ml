@@ -27,5 +27,14 @@ baz.inBar(); // expect: in bar
 baz.inBaz(); // expect: in baz
 "
 |> Interpreter.interpret;
+  [%expect {|
+    Invalid expression (Call (
+       (Get (
+          (Variable
+             { tag = IDENTIFIER; lexeme = "baz"; literal = LoxNil; line = 21 }),
+          { tag = IDENTIFIER; lexeme = "inFoo"; literal = LoxNil; line = 21 })),
+       { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 21 },
+       []))
+    |}]
 ;;
     

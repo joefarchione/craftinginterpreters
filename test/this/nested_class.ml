@@ -25,5 +25,18 @@ class Outer {
 Outer().method();
 "
 |> Interpreter.interpret;
+  [%expect {|
+    invalid expression (Call (
+       (Get (
+          (Call (
+             (Variable
+                { tag = IDENTIFIER; lexeme = "Outer"; literal = LoxNil; line = 21
+                  }),
+             { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 21 },
+             [])),
+          { tag = IDENTIFIER; lexeme = "method"; literal = LoxNil; line = 21 })),
+       { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 21 },
+       []))
+    |}]
 ;;
     

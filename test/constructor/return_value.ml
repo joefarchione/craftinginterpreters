@@ -10,5 +10,6 @@ class Foo {
 }
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: return |}]
 ;;
     

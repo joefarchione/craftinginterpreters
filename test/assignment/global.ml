@@ -13,6 +13,11 @@ print a = \"arg\"; // expect: arg
 print a; // expect: arg
 "
 |> Interpreter.interpret;
-  [%expect {| beforeafterargarg |}]
+  [%expect {|
+    before
+    after
+    arg
+    arg
+    |}]
 ;;
     

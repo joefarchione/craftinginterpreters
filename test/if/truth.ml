@@ -13,5 +13,12 @@ if (0) print 0; // expect: 0
 if (\"\") print \"empty\"; // expect: empty
 "
 |> Interpreter.interpret;
+  [%expect {|
+    false
+    nil
+    true
+    0
+    empty
+    |}]
 ;;
     

@@ -7,5 +7,6 @@ let%expect_test "use_this_as_var" =
 var this = \"value\";
 "
 |> Interpreter.interpret;
+  [%expect {| message='Expect variable name' at line 3 for lexeme='this' |}]
 ;;
     

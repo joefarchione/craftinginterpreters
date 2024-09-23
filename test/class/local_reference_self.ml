@@ -14,5 +14,6 @@ let%expect_test "local_reference_self" =
 }
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: return |}]
 ;;
     

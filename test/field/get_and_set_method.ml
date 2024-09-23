@@ -30,5 +30,14 @@ method(2);
 // expect: 2
 "
 |> Interpreter.interpret;
+  [%expect {|
+    invalid expression (Call (
+       (Get (
+          (Variable
+             { tag = IDENTIFIER; lexeme = "foo"; literal = LoxNil; line = 19 }),
+          { tag = IDENTIFIER; lexeme = "method"; literal = LoxNil; line = 19 })),
+       { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 19 },
+       [(Literal (LoxNumber 1.))]))
+    |}]
 ;;
     

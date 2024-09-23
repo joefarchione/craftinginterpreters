@@ -9,6 +9,13 @@ let%expect_test "strings" =
 // expect: STRING \"\" 
 // expect: STRING \"string\" string
 // expect: EOF  null"
-|> Interpreter.interpret;
+|> Lexer.scan_text
+|> Token.print_tokens;
+  [%expect {|
+    { tag = STRING; lexeme = "\"\""; literal = (LoxString ""); line = 2 }
+
+    { tag = STRING; lexeme = "\"string\""; literal = (LoxString "string");
+      line = 3 }
+    |}]
 ;;
     

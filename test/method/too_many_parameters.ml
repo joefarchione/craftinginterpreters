@@ -264,5 +264,6 @@ class Foo {
 }
 "
 |> Interpreter.interpret;
+  [%expect {| Can't have more than 255 parameters |}]
 ;;
     

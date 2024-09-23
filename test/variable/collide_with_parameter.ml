@@ -8,5 +8,6 @@ fun foo(a) {
 }
 "
 |> Interpreter.interpret;
+  [%expect {| resover error: Already a variable in this scope with name 'a' |}]
 ;;
     

@@ -12,5 +12,13 @@ print 123.456; // expect: 123.456
 print -0.001;  // expect: -0.001
 "
 |> Interpreter.interpret;
+  [%expect {|
+    123
+    987654
+    0
+    -0
+    123.456
+    -0.001
+    |}]
 ;;
     

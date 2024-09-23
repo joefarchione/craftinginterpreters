@@ -8,5 +8,6 @@ fun foo() {
 }
 "
 |> Interpreter.interpret;
+  [%expect {| resover error: 'this' can't use this outside of a class |}]
 ;;
     

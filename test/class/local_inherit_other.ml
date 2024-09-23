@@ -13,5 +13,6 @@ fun f() {
 print f(); // expect: B
 "
 |> Interpreter.interpret;
+  [%expect {| B |}]
 ;;
     

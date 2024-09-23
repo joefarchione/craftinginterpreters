@@ -8,5 +8,6 @@ class Foo {}
 print Foo; // expect: Foo
 "
 |> Interpreter.interpret;
+  [%expect {| Foo |}]
 ;;
     

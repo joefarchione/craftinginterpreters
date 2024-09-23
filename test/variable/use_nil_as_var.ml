@@ -7,5 +7,6 @@ let%expect_test "use_nil_as_var" =
 var nil = \"value\";
 "
 |> Interpreter.interpret;
+  [%expect {| message='Expect variable name' at line 3 for lexeme='nil' |}]
 ;;
     

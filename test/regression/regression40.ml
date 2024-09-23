@@ -27,5 +27,6 @@ fun callCaller() {
 callCaller();
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: Undefined variable 'capturedVar'. |}]
 ;;
     

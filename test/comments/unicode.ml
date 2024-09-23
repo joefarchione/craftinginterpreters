@@ -14,5 +14,6 @@ let%expect_test "unicode" =
 print \"ok\"; // expect: ok
 "
 |> Interpreter.interpret;
+  [%expect {| ok |}];;
 ;;
     

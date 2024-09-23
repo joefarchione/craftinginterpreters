@@ -10,5 +10,6 @@ let%expect_test "regression394" =
 }
 "
 |> Interpreter.interpret;
+  [%expect {| B |}]
 ;;
     

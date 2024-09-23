@@ -175,5 +175,6 @@ fun printFields() {
 printFields();
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: No property |}]
 ;;
     

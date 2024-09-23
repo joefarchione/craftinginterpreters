@@ -265,5 +265,6 @@ let%expect_test "too_many_arguments" =
 }
 "
 |> Interpreter.interpret;
+  [%expect {| Can't have more than 255 arguments |}]
 ;;
     

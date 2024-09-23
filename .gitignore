@@ -30,3 +30,4 @@ _opam/
 
 # Test generation
 gen_tests/
+delete*.*

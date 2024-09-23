@@ -10,5 +10,12 @@ print \"a string\"; // expect: a string
 print \"A~¶Þॐஃ\"; // expect: A~¶Þॐஃ
 "
 |> Interpreter.interpret;
+  [%expect {|
+    ()
+    a string
+    A~¶Þॐஃ
+    |}];;
+ 
+
 ;;
     

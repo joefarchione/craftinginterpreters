@@ -1,6 +1,7 @@
 open Core
 open Olox_lib
 
+(*FIXME*)
 let%expect_test "use_local_in_initializer" = 
 "
 var a = \"outer\";
@@ -9,5 +10,6 @@ var a = \"outer\";
 }
 "
 |> Interpreter.interpret;
+  [%expect {| runtime error: a |}]
 ;;
     

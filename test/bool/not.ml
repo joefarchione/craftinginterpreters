@@ -8,5 +8,10 @@ print !false;   // expect: true
 print !!true;   // expect: true
 "
 |> Interpreter.interpret;
+  [%expect {|
+    false
+    true
+    true
+    |}]
 ;;
     

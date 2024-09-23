@@ -17,5 +17,6 @@ fun init() {
 init(); // expect: not initializer
 "
 |> Interpreter.interpret;
+  [%expect {| not initializer |}]
 ;;
     

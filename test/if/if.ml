@@ -15,5 +15,10 @@ var a = false;
 if (a = true) print a; // expect: true
 "
 |> Interpreter.interpret;
+  [%expect {|
+    good
+    block
+    false
+    |}]
 ;;
     

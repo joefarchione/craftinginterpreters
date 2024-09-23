@@ -11,5 +11,9 @@ var a = \"global\";
 print a; // expect: global
 "
 |> Interpreter.interpret;
+  [%expect {|
+    shadow
+    global
+    |}]
 ;;
     

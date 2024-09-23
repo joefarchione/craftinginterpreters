@@ -9,5 +9,6 @@ print (5 - (3 - 1)) + -1;
 // expect: 2
 "
 |> Interpreter.interpret;
+  [%expect {| 2 |}]
 ;;
     

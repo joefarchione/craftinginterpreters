@@ -11,5 +11,6 @@ var a = \"1
 
 err; // // expect runtime error: Undefined variable 'err'."
 |> Interpreter.interpret;
+  [%expect {| runtime error: err |}];;
 ;;
     

@@ -18,5 +18,9 @@ print fooMethod == fooMethod; // expect: true
 print foo.method == foo.method; // expect: false
 "
 |> Interpreter.interpret;
+  [%expect {|
+    true
+    true
+    |}]
 ;;
     

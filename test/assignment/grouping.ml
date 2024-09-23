@@ -7,6 +7,9 @@ var a = \"a\";
 (a) = \"value\"; // Error at '=': Invalid assignment target.
 "
 |> Interpreter.interpret;
-  [%expect {| 3 =  Expect ';' after value |}]
+  [%expect {|
+    runtime error: Invalid assignment target '(Grouping
+       (Variable { tag = IDENTIFIER; lexeme = "a"; literal = LoxNil; line = 3 }))'
+    |}]
 ;;
     

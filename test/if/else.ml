@@ -11,5 +11,10 @@ if (false) print \"bad\"; else print \"good\"; // expect: good
 if (false) nil; else { print \"block\"; } // expect: block
 "
 |> Interpreter.interpret;
+  [%expect {|
+    good
+    good
+    block
+    |}]
 ;;
     
