@@ -32,7 +32,10 @@ module SexpEqShowMap = functor
     | `Ok (v) -> v
     | `Duplicate -> Map.set t ~key:k ~data:v
 
-
+  let find k (t:t) : S.t option = 
+    match Map.find t k with 
+    | Some (v) -> Some v
+    | None -> None
 
   let print t = Format.printf "%s\n" (show t)
 end

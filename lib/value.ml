@@ -31,6 +31,7 @@ module Value = struct
 
     and lox_class = {
       name: string;
+      superclass: lox_class option;
       arity: int;
       methods: Coremap.SexpEqShowMap(String)(T).t
     }
@@ -78,6 +79,7 @@ module Value = struct
 
     and lox_class = {
       name: string;
+      superclass: lox_class option;
       arity: int;
       methods: ClassFields.t [@compare.ignore];
     }
@@ -116,10 +118,27 @@ module Value = struct
 
   let is_truthy value = bool_of value
 
-  let find_method (name:string) (methods: ClassFields.t) = 
-    match Map.find methods name with 
+  let find_method (name:string) (instance: lox_instance) : t option = 
+    match Map.find instance.klass.methods name with 
     | Some (v) -> Some (v)
-    | None -> None
+    | None -> (
+      match instance.klass.superclass with 
+      | Some (superclass) -> (
+          match Map.find superclass.methods name with 
+          | Some (v) -> Some (v)
+          | None -> None
+      )
+      | None -> None
+    )
+
+  let rec find_method_on_class (name: string) (klass: lox_class) : t option = 
+    match Map.find klass.methods name with 
+    | Some (v) -> Some (v)
+    | None -> (
+      match klass.superclass with 
+      | Some(klass) -> find_method_on_class name klass
+      | None -> None
+    )
 
   let bind_method (m: lox_method) (i: lox_instance) : lox_function = 
     {
@@ -133,7 +152,7 @@ module Value = struct
     | LoxFunction f -> f.callable args
     | LoxClass c -> (
         let instance = {klass=c; fields = ClassFields.empty} in
-        match find_method "init" c.methods with 
+        match find_method "init" instance with 
         | Some(LoxMethod(f)) -> (
           let func = LoxFunction (bind_method f instance) in 
           call func args
@@ -146,7 +165,7 @@ module Value = struct
     match Map.find instance.fields name with 
     | Some (v) -> v
     | None -> (
-      match find_method name instance.klass.methods with
+      match find_method name instance with
       | Some (lm) -> (
         match lm with  
         | LoxMethod (m) -> bind_method m instance |> LoxFunction

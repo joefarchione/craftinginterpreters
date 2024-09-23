@@ -12,6 +12,7 @@ module Expression = struct
   | Logical of t * Token.t * t
   | Get of t  * Token.t
   | Set of t * Token.t * t
+  | Super of Token.t * Token.t
   | This of Token.t
   [@@deriving eq, sexp, compare, show { with_path = false }]
 

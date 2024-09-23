@@ -186,7 +186,7 @@ let%expect_test "class_declaration" =
    |> Statement.print_statements;
   [%expect {|
     (ClassDeclaration (
-       { tag = IDENTIFIER; lexeme = "Bacon"; literal = LoxNil; line = 2 },
+       { tag = IDENTIFIER; lexeme = "Bacon"; literal = LoxNil; line = 2 }, None,
        [(FunctionDeclaration (
            { tag = IDENTIFIER; lexeme = "eat"; literal = LoxNil; line = 3 },
            [], [(Print (Literal (LoxString "Crunch crunch crunch!")))]))
@@ -224,7 +224,7 @@ let%expect_test "class_declaration" =
    |> Statement.print_statements;
   [%expect {|
     (ClassDeclaration (
-       { tag = IDENTIFIER; lexeme = "Box"; literal = LoxNil; line = 2 },
+       { tag = IDENTIFIER; lexeme = "Box"; literal = LoxNil; line = 2 }, None,
        []))
     (FunctionDeclaration (
        { tag = IDENTIFIER; lexeme = "notMethod"; literal = LoxNil; line = 4 },
@@ -269,3 +269,118 @@ let%expect_test "class_declaration" =
           [(Literal (LoxString "argument"))])))
     |}]
 ;;
+
+let%expect_test "inheritance" = 
+   "
+   class Doughnut {
+   cook() {
+      print \"Fry until golden brown.\";
+   }
+   }
+
+   class BostonCream < Doughnut {}
+
+   BostonCream().cook();
+  "
+   |> Lexer.scan_text 
+   |> Parser.parse 
+   |> Statement.print_statements;
+  [%expect {|
+    (ClassDeclaration (
+       { tag = IDENTIFIER; lexeme = "Doughnut"; literal = LoxNil; line = 2 },
+       None,
+       [(FunctionDeclaration (
+           { tag = IDENTIFIER; lexeme = "cook"; literal = LoxNil; line = 3 },
+           [], [(Print (Literal (LoxString "Fry until golden brown.")))]))
+         ]
+       ))
+    (ClassDeclaration (
+       { tag = IDENTIFIER; lexeme = "BostonCream"; literal = LoxNil; line = 8 },
+       (Some (Variable
+                { tag = IDENTIFIER; lexeme = "Doughnut"; literal = LoxNil;
+                  line = 8 })),
+       []))
+    (Expression
+       (Call (
+          (Get (
+             (Call (
+                (Variable
+                   { tag = IDENTIFIER; lexeme = "BostonCream"; literal = LoxNil;
+                     line = 10 }),
+                { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 10 },
+                [])),
+             { tag = IDENTIFIER; lexeme = "cook"; literal = LoxNil; line = 10 })),
+          { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 10 },
+          [])))
+    |}]
+;;
+
+let%expect_test "super" = 
+   "
+   class Doughnut {
+   cook() {
+      print \"Fry until golden brown.\";
+   }
+   }
+
+   class BostonCream < Doughnut {
+   cook() {
+      super.cook();
+      print \"Pipe full of custard and coat with chocolate.\";
+   }
+   }
+
+   BostonCream().cook();
+   "
+   |> Lexer.scan_text 
+   |> Parser.parse 
+   |> Statement.print_statements;
+  [%expect {|
+    (ClassDeclaration (
+       { tag = IDENTIFIER; lexeme = "Doughnut"; literal = LoxNil; line = 2 },
+       None,
+       [(FunctionDeclaration (
+           { tag = IDENTIFIER; lexeme = "cook"; literal = LoxNil; line = 3 },
+           [], [(Print (Literal (LoxString "Fry until golden brown.")))]))
+         ]
+       ))
+    (ClassDeclaration (
+       { tag = IDENTIFIER; lexeme = "BostonCream"; literal = LoxNil; line = 8 },
+       (Some (Variable
+                { tag = IDENTIFIER; lexeme = "Doughnut"; literal = LoxNil;
+                  line = 8 })),
+       [(FunctionDeclaration (
+           { tag = IDENTIFIER; lexeme = "cook"; literal = LoxNil; line = 9 },
+           [],
+           [(Expression
+               (Call (
+                  (Super (
+                     { tag = SUPER; lexeme = "super"; literal = LoxNil; line = 10
+                       },
+                     { tag = IDENTIFIER; lexeme = "cook"; literal = LoxNil;
+                       line = 10 }
+                     )),
+                  { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 10
+                    },
+                  [])));
+             (Print
+                (Literal
+                   (LoxString "Pipe full of custard and coat with chocolate.")))
+             ]
+           ))
+         ]
+       ))
+    (Expression
+       (Call (
+          (Get (
+             (Call (
+                (Variable
+                   { tag = IDENTIFIER; lexeme = "BostonCream"; literal = LoxNil;
+                     line = 15 }),
+                { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 15 },
+                [])),
+             { tag = IDENTIFIER; lexeme = "cook"; literal = LoxNil; line = 15 })),
+          { tag = RIGHT_PAREN; lexeme = ")"; literal = LoxNil; line = 15 },
+          [])))
+    |}]
+;; 

@@ -112,6 +112,31 @@ let rec evaluate_expr (expr: Expression.t) (state:State.t): Value.t * State.t =
   | This (token) -> (
     (lookup_variable token.lexeme expr state), state
   )
+  | Super (_, loxmethod) -> (
+    let distance = Resolver.Locals.get expr state.resolver.locals in 
+    match distance with 
+    | Some(d) -> (
+        let superclass =  
+          match Environment.get_at (d-1) "super" state.env with 
+          | LoxClass (c) -> c 
+          | _ -> failwith "expected class"
+        in 
+        let lox_object = 
+          match Environment.get_at (d-2) "this" state.env  with 
+          | LoxInstance (i) -> i
+          | _ -> failwith "expected class"
+        in
+        let lox_method = (
+          match Value.find_method_on_class loxmethod.lexeme superclass with
+          | Some(Value.LoxMethod (m)) -> m 
+          | _ -> failwith "expected method"
+        )
+        in  
+        (Value.LoxFunction (Value.bind_method lox_method lox_object)), state
+    )
+    | None -> failwith "super not defined in locals"
+  )
+
 
 
 let rec evaluate_statement (statement: Statement.t) (state:State.t) :State.t= 
@@ -161,8 +186,27 @@ let rec evaluate_statement (statement: Statement.t) (state:State.t) :State.t=
         ) in
       lox_while condition body state
     )
-    | Statement.ClassDeclaration (token, method_stmts) ->  (
-      let env = Environment.define token.lexeme Value.LoxNil state.env in
+    | Statement.ClassDeclaration (token, superclass, method_stmts) ->  (
+      let (superclass, state) = (
+        match superclass with 
+        | Some (s)  -> (
+            let (superclass, state) =  evaluate_expr s state in 
+            match superclass with 
+            | LoxClass (c) -> (Some c, state)
+            | _ -> failwith "Superclass must be a class"
+        )
+        | None -> (None, state)
+      ) in 
+      let state = {state with env = Environment.define token.lexeme Value.LoxNil state.env} in 
+      let env = (
+        match superclass with 
+        | Some(s) -> 
+          let env = Environment.create_local state.env in 
+          Environment.define "super" (LoxClass(s)) env
+        | None -> state.env
+      )
+      in
+      let state = {state with env = env} in 
       let methods = 
         List.fold method_stmts ~init:Value.ClassFields.empty 
           ~f:(fun acc m -> 
@@ -171,14 +215,20 @@ let rec evaluate_statement (statement: Statement.t) (state:State.t) :State.t=
               Value.ClassFields.set name.lexeme (create_lox_method name params body state) acc
             | _ -> failwith "only expected function declaratations here"
           ) in 
-      
+
       let arity = (
-        match Value.find_method "init" methods with
+        match Value.ClassFields.find "init" methods with
         | Some (Value.LoxFunction(f)) -> f.arity
         | _ -> 0
       ) in 
-      let klass = Value.(LoxClass {name=token.lexeme; arity = arity ;methods = methods;}) in 
-      let env = Environment.assign token.lexeme klass env in
+      let klass = Value.(LoxClass {name=token.lexeme; superclass; arity = arity ;methods = methods;}) in 
+      let env = (
+        match superclass with 
+        | Some(_) -> Environment.pop state.env
+        | None -> state.env
+      )
+      in
+      let env = Environment.define token.lexeme klass env in
       {state with env = env}
     )
     | Statement.FunctionDeclaration (name, params, body) ->  (
@@ -233,11 +283,11 @@ and create_lox_function (name: Token.t) (params: Token.t list) (body: Statement.
     Value.LoxFunction {name = name.lexeme; arity = List.length params; callable = call_func}
 
 and create_lox_method (name: Token.t) (params: Token.t list) (body: Statement.t list) (state: State.t) = 
-    let global_env = Environment.get_global state.env in 
-    let func_env = Environment.create_local [global_env] in
+    (* let global_env = Environment.get_global state.env in 
+    let func_env = Environment.create_local [global_env] in *)
     let call_func (instance: Value.lox_instance) (args: Value.t list) : Value.t = 
       let closure = 
-        Environment.create_local func_env
+        Environment.create_local state.env
         |> Environment.define "this" (Value.LoxInstance(instance)) in 
       let closure = 
         match (List.fold2 params args ~init:closure ~f:(fun acc p a -> Environment.define p.lexeme a acc)) with 
